@@ -1,21 +1,36 @@
-# À AUDITER — MVP 0.2
+# À AUDITER — MVP 0.3
 
 ## Cible
-Branche : `develop`
-Application : `app/app.py`
+Branche `develop`. Auditer le HEAD contenant le correctif post-audit MVP 0.2.
 
 ## Mission
-Auditer sans modifier le code sauf demande explicite.
+Audit indépendant sans modifier `app/`.
 
-## Régressions à vérifier en priorité
-1. Avec 3 rushs ou plus, les 3 premiers Shorts doivent provenir de rushs distincts si chaque rush est exploitable.
-2. Avec 1 ou 2 rushs, aucun candidat sélectionné ne doit être un quasi-doublon temporel du même rush (écart minimal actuel : 12 s).
-3. Deux générations successives du même événement doivent créer deux dossiers `run_*` distincts et ne rien écraser.
-4. `rapport.json` doit inventorier tous les rushs et tracer chaque export vers sa source, son start et sa durée.
-5. Vérifier les vidéos très courtes et les noms d'événements atypiques.
+## Régressions historiques à rejouer
+- multi-rush ;
+- déduplication temporelle ;
+- générations successives sans écrasement.
 
-## Important
-Ne pas déclarer présents : sous-titres, scoring hockey intelligent, sélection multimodale, Sponsor Manager ou reporting partenaire. Ces fonctions restent à implémenter.
+## Défauts MAJEURS du précédent audit à rejouer impérativement
+1. MAJ-01 / T17 : vidéo 2 s + audio 60 s. Aucun faux Short audio-only ne doit être annoncé.
+2. MAJ-02 / T09 : portrait 80x160 (1:2), plus 9:16 et paysage. Les exports doivent rester 1080x1920 avec flux vidéo.
+3. MAJ-03 : événement 300 caractères, destination invalide et collision de run. Aucune exception non gérée ; progression arrêtée.
+4. MAJ-04 / T10-T15 : rush corrompu au milieu et échec d'un export. Le traitement des autres rushs doit continuer autant que possible et `rapport.json` doit conserver sources, erreurs et exports valides.
+5. MAJ-05 / T11-T16 : même fichier via chemin réel + symlink. Il doit être reconnu comme même source et ne pas produire deux clips identiques.
+6. MIN-01 : zéro export doit être présenté comme « aucun segment exploitable », jamais « prêt à valider ».
 
-## Rapport
-Remplacer `worker/RESULTAT_AUDIT.md` par : commit audité, environnement, tests, CRITIQUES/MAJEURS/MINEURS, reproduction, preuves et verdict BLOQUÉ/CANDIDAT/VALIDÉ.
+## Contrôles supplémentaires
+- Source sans audio : doit pouvoir produire une vidéo.
+- Vérifier que la durée utilisée pour la sélection correspond au flux vidéo, pas au conteneur/audio.
+- Vérifier chaque export avec ffprobe + décodage FFmpeg.
+- Vérifier les dimensions 1080x1920.
+- Vérifier qu'un export invalide/0 octet n'est jamais enregistré comme `status: ok`.
+- Vérifier que le rapport JSON existe sur toute exécution où un run_dir a pu être créé.
+- Rejouer la grille combinatoire du sélecteur adaptée à `source_id`.
+- Examiner les risques Tk/thread sans les déclarer corrigés sans reproduction.
+
+## Fonctions toujours hors périmètre
+Ne pas déclarer présentes : transcription/sous-titres, scoring hockey intelligent, sélection multimodale, suivi intelligent 9:16, Sponsor Manager, reporting partenaire.
+
+## Livrable
+Remplacer `worker/RESULTAT_AUDIT.md`, committer sur `develop`, fournir commit audité + commit rapport + verdict BLOQUÉ/CANDIDAT/VALIDÉ.
