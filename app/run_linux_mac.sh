@@ -1,2 +1,4 @@
 #!/bin/sh
-python3 app.py
+set -e
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+exec python3 "$SCRIPT_DIR/app.py"
