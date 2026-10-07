@@ -1,23 +1,20 @@
-# À AUDITER — MVP 0.4
+# À AUDITER — MVP 0.5
 
 Auditer le HEAD de `develop` sans modifier `app/`.
 
-## Rejouer toute la régression MVP 0.3
-Rejouer notamment les 43 tests du rapport précédent et la grille combinatoire.
+Rejouer l'intégralité de la campagne MVP 0.4 : 48 tests, grilles T02/T03, contrôles C01–C06 et décodage intégral de tous les exports déclarés ok.
 
-## Blocages à lever
-- MAJ-01 résiduel / T36 : MKV avec vidéo ~2 s et audio ~60 s. La durée de sélection doit provenir de la timeline vidéo, pas du conteneur.
-- MAJ-06 / T37-T99 : un H.264 structurellement probe-able mais indécodable ne doit jamais être enregistré `status: ok`.
-- MAJ-07 / T24 : modifier événement/partenaire pendant le rendu ne doit jamais désynchroniser dossier, JSON et texte de publication.
+## Blocage MVP 0.4 à lever
+MAJ-08 / T45 / C05 : injecter un échec de construction ou de `Thread.start()`. Aucun RuntimeError ne doit s'échapper de `run_thread`, `processing` doit revenir à false, une erreur utilisateur doit être signalée, puis un lancement suivant doit être autorisé.
 
-## Durcissements à contrôler
-- Deux appels `run_thread` pendant une génération : le second doit être refusé.
-- Contrôler qu'après succès ou erreur le verrou `processing` est libéré.
-- Vérifier MP4/MKV, vidéo silencieuse, portrait, paysage, corruption, source absente et génération partielle.
-- Décoder intégralement chaque export déclaré `ok`.
+Conserver les non-régressions T43 (second lancement refusé pendant un worker actif) et T46 (verrou libéré après erreur interne puis génération suivante réussie).
 
-## Hors périmètre
-Toujours absents : transcription/sous-titres, scoring hockey intelligent, sélection multimodale, suivi intelligent 9:16, Sponsor Manager, reporting partenaire.
+## Mineurs à vérifier
+- Lanceur Linux/macOS utilisable depuis la racine via `sh app/run_linux_mac.sh` et depuis `app/` via `sh run_linux_mac.sh`.
+- README cohérent avec MVP 0.5.
+- Ne pas considérer le bit exécutable comme corrigé si GitHub ne le conserve pas : distinguer exécution directe et exécution via `sh`.
 
-## Livrable
-Remplacer `worker/RESULTAT_AUDIT.md`, commit sur `develop`, fournir commit audité, preuves et verdict BLOQUÉ/CANDIDAT/VALIDÉ.
+## Verdict
+BLOQUÉ si un défaut majeur reproductible subsiste. CANDIDAT si moteur conforme mais essais GUI réels restent nécessaires. VALIDÉ uniquement si les preuves demandées justifient ce terme.
+
+Remplacer `worker/RESULTAT_AUDIT.md`, committer le rapport sur `develop`, fournir commit audité + commit rapport.
