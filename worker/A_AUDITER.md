@@ -1,20 +1,38 @@
-# À AUDITER — MVP 0.5
+# À AUDITER — MVP 0.6
 
 Auditer le HEAD de `develop` sans modifier `app/`.
 
-Rejouer l'intégralité de la campagne MVP 0.4 : 48 tests, grilles T02/T03, contrôles C01–C06 et décodage intégral de tous les exports déclarés ok.
+## Contexte terrain macOS
+Le MVP 0.5 a démarré correctement sur un Mac réel (Python Homebrew 3.14.6, Tk 9.1, FFmpeg Homebrew 9.0.2). Quatre MP4 WhatsApp 1920x1080 ont été correctement probés et trois candidats sélectionnés, mais les trois exports ont échoué avec FFmpeg exit status 8.
 
-## Blocage MVP 0.4 à lever
-MAJ-08 / T45 / C05 : injecter un échec de construction ou de `Thread.start()`. Aucun RuntimeError ne doit s'échapper de `run_thread`, `processing` doit revenir à false, une erreur utilisateur doit être signalée, puis un lancement suivant doit être autorisé.
+Diagnostic terrain reproduit par :
+`ffmpeg -hide_banner -filters | grep drawtext`
+Aucune sortie : le build FFmpeg Homebrew standard testé ne fournit pas `drawtext`.
 
-Conserver les non-régressions T43 (second lancement refusé pendant un worker actif) et T46 (verrou libéré après erreur interne puis génération suivante réussie).
+## Correctif MVP 0.6 à vérifier
+- détection de la capacité FFmpeg `drawtext` ;
+- si disponible : comportement de branding antérieur ;
+- si absent : export doit continuer avec scale + crop + drawbox, sans texte ;
+- `rapport.json` doit tracer `ffmpeg_capabilities.drawtext` ;
+- si absent, le rapport doit contenir un warning explicite ;
+- aucun export ne doit être déclaré ok sans le contrôle ffprobe + décodage intégral existant.
 
-## Mineurs à vérifier
-- Lanceur Linux/macOS utilisable depuis la racine via `sh app/run_linux_mac.sh` et depuis `app/` via `sh run_linux_mac.sh`.
-- README cohérent avec MVP 0.5.
-- Ne pas considérer le bit exécutable comme corrigé si GitHub ne le conserve pas : distinguer exécution directe et exécution via `sh`.
+## Régression obligatoire
+Rejouer toute la campagne MVP 0.5, y compris les 48 contrôles précédemment passés.
 
-## Verdict
-BLOQUÉ si un défaut majeur reproductible subsiste. CANDIDAT si moteur conforme mais essais GUI réels restent nécessaires. VALIDÉ uniquement si les preuves demandées justifient ce terme.
+Ajouter au minimum :
+1. simulation/build FFmpeg avec drawtext présent ;
+2. simulation/build FFmpeg sans drawtext : 3 exports valides 1080x1920 doivent pouvoir être produits ;
+3. vérifier que le bandeau drawbox reste présent dans la chaîne de filtre sans drawtext ;
+4. vérifier qu'une absence d'un filtre réellement indispensable échoue proprement et est tracée ;
+5. vérifier le rapport/warning/capability ;
+6. décoder intégralement chaque export déclaré `ok`.
 
-Remplacer `worker/RESULTAT_AUDIT.md`, committer le rapport sur `develop`, fournir commit audité + commit rapport.
+## Point de vigilance
+La validation GUI macOS terrain devra être rejouée après audit. Ne pas déclarer le produit validé uniquement sur tests synthétiques.
+
+## Hors périmètre
+Toujours absents : transcription/sous-titres, scoring hockey intelligent, sélection multimodale, suivi intelligent 9:16, Sponsor Manager, reporting partenaire.
+
+## Livrable
+Remplacer `worker/RESULTAT_AUDIT.md`, commit sur `develop`, fournir commit audité, preuves et verdict BLOQUÉ/CANDIDAT/VALIDÉ.
