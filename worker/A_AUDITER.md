@@ -1,22 +1,21 @@
-# À AUDITER
+# À AUDITER — MVP 0.2
+
+## Cible
+Branche : `develop`
+Application : `app/app.py`
 
 ## Mission
-Auditer la version présente sur la branche `develop` sans modifier le code sauf demande explicite.
+Auditer sans modifier le code sauf demande explicite.
 
-## Méthode obligatoire
-- Reproduire chaque défaut avant de le déclarer confirmé.
-- Classer : CRITIQUE / MAJEUR / MINEUR.
-- Donner les étapes de reproduction et les preuves.
-- Identifier le commit audité et l'environnement de test.
-- Écrire le rapport dans `worker/RESULTAT_AUDIT.md`.
-- Si possible, créer une issue GitHub par défaut confirmé.
+## Régressions à vérifier en priorité
+1. Avec 3 rushs ou plus, les 3 premiers Shorts doivent provenir de rushs distincts si chaque rush est exploitable.
+2. Avec 1 ou 2 rushs, aucun candidat sélectionné ne doit être un quasi-doublon temporel du même rush (écart minimal actuel : 12 s).
+3. Deux générations successives du même événement doivent créer deux dossiers `run_*` distincts et ne rien écraser.
+4. `rapport.json` doit inventorier tous les rushs et tracer chaque export vers sa source, son start et sa durée.
+5. Vérifier les vidéos très courtes et les noms d'événements atypiques.
 
-## Priorités actuelles
-1. Tous les rushs d'un événement doivent être exploités, pas uniquement le premier.
-2. Éviter les clips identiques ou quasi-identiques.
-3. Ne jamais écraser silencieusement une génération précédente.
-4. Vérifier l'isolation et le versionnement par événement.
-5. Vérifier ensuite transcription/sous-titres, sélection intelligente et reporting partenaires.
+## Important
+Ne pas déclarer présents : sous-titres, scoring hockey intelligent, sélection multimodale, Sponsor Manager ou reporting partenaire. Ces fonctions restent à implémenter.
 
-## Contrainte produit
-Objectif à mesurer, et non promesse validée : communication humaine <= 90 min/semaine et <= 30 min/jour hors tournage.
+## Rapport
+Remplacer `worker/RESULTAT_AUDIT.md` par : commit audité, environnement, tests, CRITIQUES/MAJEURS/MINEURS, reproduction, preuves et verdict BLOQUÉ/CANDIDAT/VALIDÉ.
