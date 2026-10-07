@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime
 import subprocess, json, shutil, threading, re, os, uuid
 
-APP_NAME="Sentinelles Content Factory MVP 0.4"
+APP_NAME="Sentinelles Content Factory MVP 0.5"
 NAVY="#081B4B"; RED="#E41F2B"
 
 class App(tk.Tk):
@@ -54,7 +54,13 @@ class App(tk.Tk):
             messagebox.showerror("FFmpeg manquant","Installe FFmpeg et ajoute-le au PATH."); return
         self.processing=True
         snapshot={"event":self.event.get(),"sponsor":self.sponsor.get(),"files":list(self.files),"output":Path(self.output)}
-        threading.Thread(target=self.process,args=(snapshot,),daemon=True).start()
+        try:
+            worker=threading.Thread(target=self.process,args=(snapshot,),daemon=True)
+            worker.start()
+        except Exception as e:
+            self.processing=False
+            self.status.set("Erreur")
+            messagebox.showerror("Démarrage impossible",str(e))
 
     @staticmethod
     def source_id(f):
@@ -145,7 +151,7 @@ class App(tk.Tk):
             snapshot={"event":self.event.get(),"sponsor":self.sponsor.get(),"files":list(self.files),"output":Path(self.output)}
         self.progress.start(10); self.status.set("Analyse en cours...")
         run_dir=None
-        report={"schema_version":"0.4","event":snapshot["event"],"sponsors":snapshot["sponsor"],
+        report={"schema_version":"0.5","event":snapshot["event"],"sponsors":snapshot["sponsor"],
                 "run_dir":None,"status":"running","sources":[],"candidates":[],"exports":[],"errors":[]}
         try:
             self._run_output=snapshot["output"]; self._run_event=snapshot["event"]
