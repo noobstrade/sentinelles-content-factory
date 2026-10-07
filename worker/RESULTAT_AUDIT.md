@@ -1,65 +1,72 @@
-# Audit indépendant — Sentinelles Content Factory MVP 0.3
+# Audit indépendant — Sentinelles Content Factory MVP 0.4
 
 **Verdict final : BLOQUÉ.**
 
-Le correctif passe les cas historiques obligatoires en MP4, les portraits, les erreurs de création de dossier, les erreurs isolées de rush/export, les alias et le message à zéro export. La règle de durée vidéo reste toutefois violée avec un MKV pris en charge par l’import. Deux autres défauts majeurs sont reproduits : acceptation d’un export dont les images ne se décodent pas, et divergence événement/partenaire entre le texte proposé et le rapport lorsque le formulaire change pendant le rendu.
+Les trois blocages du MVP 0.3 sont levés dans les scénarios rejoués : durée vidéo du MKV, rejet du H.264 indécodable et cohérence du snapshot événement/partenaire. Les 43 tests de régression passent. Un défaut supplémentaire, **MAJ-08**, contrevient au contrôle demandé de libération du verrou après erreur : un échec de démarrage du thread laisse `processing=True` sans génération active ; la demande suivante est refusée. Cet échec est injecté explicitement, sans prétendre qu’une saturation réelle du système a été observée.
 
-**Cible et références**
+**Cible et intégrité**
 
 - Dépôt : [noobstrade/sentinelles-content-factory](https://github.com/noobstrade/sentinelles-content-factory).
-- Branche auditée : `develop`.
-- Commit audité exact : [`a318dde642e6ab542ae602b6b0b83a70876631c9`](https://github.com/noobstrade/sentinelles-content-factory/commit/a318dde642e6ab542ae602b6b0b83a70876631c9).
-- Date de l’audit : 7 octobre 2026, UTC.
-- Arbre racine audité : `6d16c2641d0b155f642ed4589a9cdf14d7447236`.
-- Arbre `app/` audité : `e0a91a0242c9a751f1e3d041ef52e28e0819c87f`.
-- Blob Git de `app/app.py` : `c0596fe814fef4a6b69a9c4c4e122c2b2d4a4173`.
-- Lectures intégrales avant l’audit de l’application : `worker/A_AUDITER.md` (MVP 0.3), `docs/PRODUCT_SPEC.md`, `docs/AUDIT_BASELINE.md`, `docs/WORKFLOW.md`, puis les six fichiers de `app/`. Aucun `AGENTS.md` dans l’arbre du dépôt.
-- Les 12 blobs du snapshot ont été contrôlés par taille et SHA Git avant exécution. Les six fichiers de l’application restent identiques après la suite et les confirmations ; empreintes en annexe.
-- Livrable demandé : remplacement de ce seul fichier sur `develop`. Aucun changement de `app/`, aucun correctif d’application, aucune mise à jour de `main`.
+- Branche : `develop`.
+- Commit audité : [`351aff8f7679dbce7029533a43f72ccfe05e5704`](https://github.com/noobstrade/sentinelles-content-factory/commit/351aff8f7679dbce7029533a43f72ccfe05e5704).
+- Date : 7 octobre 2026, UTC.
+- Arbre racine : `a24b864890b5e6ffaaef0a7bf929f6bdf53cfc1c`.
+- Arbre `app/` : `4f9b3fdb1b2f5796d269e13f7ea8e08f9817b5ab`.
+- Blob de `app/app.py` : `8b96e2bbd3c42e25c251361e8c8e8075d0509d28`.
+- Lectures intégrales : mandat MVP 0.4 `worker/A_AUDITER.md`, `docs/PRODUCT_SPEC.md`, `docs/AUDIT_BASELINE.md`, `docs/WORKFLOW.md`, puis les six fichiers de `app/`. Le rapport MVP 0.3 de `ed46ee188ef1070f55538a99db96c7d5d886ec31` est inchangé dans ce snapshot et ses 43 scénarios sont conservés. Aucun `AGENTS.md` dans le dépôt.
+- Snapshot des 12 blobs vérifié par taille et SHA Git. Aucun fichier de l’application modifié, aucun cache Python créé dans `app/` ; contrôle SHA-256 avant/après la suite et les confirmations.
+- Seul livrable à commiter : `worker/RESULTAT_AUDIT.md` sur `develop`. Aucun correctif appliqué et aucun passage sur `main`.
 
-La baseline décrit des défauts anciens ; elle n’est pas une preuve de leur persistance. Chaque conclusion ci-dessous s’appuie sur des exécutions de ce commit MVP 0.3.
+**Campagne et méthode**
 
-**Environnement, méthode et portée des preuves**
+**48 tests : 43 régressions rejouées et 5 contrôles supplémentaires. Résultat final : 47 réussis, 1 échec (T45), aucune erreur de harnais.** Durée unittest : 62,285 s. La grille T02 comporte **66 429 configurations**, sans violation, et la grille T03 ajoute **120 configurations avec alias et sources en erreur**.
 
-Linux x86_64, noyau 6.18.44, glibc 2.39 ; Python 3.12.14 ; Tk/Tcl 9.0 ; FFmpeg et ffprobe 6.1.1-3ubuntu5. Import de l’application et analyse syntaxique réussis. Aucune dépendance IA nécessaire pour exécuter le moteur actuel.
+Environnement : Python 3.12.14, Linux x86_64 / noyau 6.18.44 / glibc 2.39, Tk/Tcl 9.0, FFmpeg et ffprobe 6.1.1-3ubuntu5. Les méthodes originales du commit sont chargées sans réécriture. Fixtures vidéo et audio, probing, rendus et décodages sont réels. Les chemins, dimensions, durées, codes de retour, JSON, textes et hashes sont contrôlés.
 
-Les fonctions originales de `app/app.py` sont chargées sans réécriture. Les médias de test sont réellement générés par FFmpeg. Le probing, les encodages et les décodages sont réels. Les variables de formulaire, la progression et les boîtes de dialogue sont remplacées par des doubles, car cet environnement n’a ni `DISPLAY` ni Xvfb ; l’ouverture de `tk.Tk()` échoue avec `TclError: no display name and no $DISPLAY environment variable`. Cet empêchement d’environnement n’est pas classé comme défaut de l’application.
+Le harnais du précédent rapport est adapté à `process(snapshot)`, au schéma 0.4 et au nouveau décodage FFmpeg interne. Il distingue les commandes d’encodage des commandes de vérification : seules les premières déclenchent les injections et le compteur des exports. Le test T46 compte deux départs et deux arrêts de progression, puisqu’il exécute deux générations. **Seule l’exécution finale dans `execution_v04_final` sert aux chiffres et au verdict ci-dessous** ; les premiers essais d’adaptation du harnais sont exclus.
 
-Les injections sont explicites : horloge/UUID pour les collisions ; retour d’échec d’un encodage ; altération du fichier de sortie après FFmpeg ; erreur d’écriture du texte ; modification du formulaire au point précis suivant l’encodage. Elles éprouvent les garde-fous, sans prétendre mesurer la fréquence naturelle de ces incidents. Le test du rush corrompu et le cas MKV utilisent des entrées réellement présentes sur disque sans remplacement du probing ou du rendu.
+Les erreurs d’export, d’écriture et de démarrage de thread, les collisions horloge/UUID et la corruption des payloads après rendu sont des injections documentées. Elles contrôlent les branches d’erreur et les garde-fous. Le MP4 corrompu en entrée, le chemin absent, les sources sans audio et les cas MKV sont des fichiers réels traités par le pipeline original.
 
-Résultat de la suite : **43 tests, 39 réussis, 4 assertions échouées, aucune erreur de harnais**, durée unittest 51,493 s. Les quatre assertions échouées correspondent à **trois défauts distincts** : T24, T36, T37 ; T99 retrouve le même export corrompu que T37. Les tests d’observation T27/T28/T42 peuvent réussir tout en établissant un comportement indésirable ou une limite.
+Les variables/progression/messagebox de la campagne moteur utilisent des doubles. T43 et T46 lancent de vrais threads Python ; C05 emploie la véritable classe `threading.Thread` avec son `start` en échec injecté et de vraies `tk.StringVar` sur un interpréteur Tcl. Les widgets graphiques Tk ne sont pas exercés : aucun `DISPLAY` ni Xvfb dans l’environnement. Cette limite ne constitue pas un défaut reproduit de l’application et la sûreté graphique reste non validée.
 
-Compléments indépendants C01/C02/C03 :
+**Preuves transversales indépendantes**
 
-- C01 : **46 dossiers de génération créés, 46 rapports JSON présents et parseables**, y compris le run de traçage de thread T42. Les échecs de destination/collision épuisée ne créent aucun nouveau run ; il n’y a donc pas de rapport de nouveau run à exiger dans ces cas.
-- C02 : le MKV de T36 se décode intégralement sans erreur. La même commande de rendu, avec seulement le début ramené à 0 s et la durée à 2 s dans un fichier de contrôle extérieur au pipeline, produit un H.264/AAC 1080×1920 de 2 s entièrement décodable.
-- C03 : appel direct à `App.verify_export()` sur la sortie corrompue de T37 : `True`, alors qu’un décodage indépendant échoue avec le code 69.
+| Confirmation | Preuve et résultat |
+|---|---|
+| C01 | Lecture des **51 dossiers run** et parsing de leurs **51 rapports JSON**. Extraction de **58 entrées réellement marquées ok**, y compris l’export valide de la première génération T46 dont le statut global est failed. Contrôle individuel ffprobe et décodage intégral de tous les flux : **58 vidéos 1080×1920, 58 codes 0, 58 stderr vides**. |
+| C02 | Appel original `probe_source` sur le MKV : fin vidéo **2,023 s**, identique au maximum indépendant des PTS + durées de ses quatre paquets vidéo. Conteneur : **60,023 s**. Le pipeline produit un vrai Short, start 0, images de 2 s ; source et export se décodent. |
+| C03 | Le même type de H.264 corrompu que T37 reste probe-able en 1080×1920 mais échoue au décodage (code 69). `verify_export` original lève désormais `ValueError: Décodage vidéo de contrôle échoué` ; aucune entrée ok. |
+| C04 | Lecture croisée de T44 : malgré des changements de nom, partenaire, liste de rushs et destination avant le lancement effectif du worker, dossier/JSON/texte/sources utilisent le snapshot initial. |
+| C05 | Confirmation séparée de MAJ-08 avec la vraie classe Thread et des variables Tcl réelles : `RuntimeError` à start, `processing=True` après l’erreur, puis warning `Traitement en cours` au nouvel appel ; aucun worker démarré. |
+| C06 | AAC corrompu après rendu : rejet par le vérificateur original, erreur export enregistrée, aucune entrée ok. Le décodage complet indépendant échoue également. Aucune généralisation à toutes les formes possibles de corruption audio. |
 
-La suite contrôle **les 60 fichiers MP4 laissés par le pipeline**, y compris les sorties rejetées, avec ffprobe et décodage FFmpeg complet ; le contrôle positif C02 ajoute un 61e fichier vérifié. Dans la suite, 54 entrées sont marquées `ok` : **53 vidéos 1080×1920 se décodent sans erreur et 1 est invalide**. Parmi les six fichiers exclus du JSON des exports, quatre sont audio-only, un a de mauvaises dimensions et un est du texte invalide. Un décodage audio-only réussi ne prouve pas l’existence d’un Short vidéo.
+Les **63 fichiers MP4 laissés par le pipeline** sont contrôlés par ffprobe et décodage complet dans la campagne, y compris les sorties rejetées. Les cinq fichiers exclus sont : mauvais format 320×180, audio-only, texte invalide, H.264 corrompu et AAC corrompu. Les fichiers de zéro octet ont été supprimés. Aucun fichier invalide n’est déclaré `ok` dans cette exécution. Le scan indépendant C01 assure la couverture des deux rapports de T46, au-delà du dernier rapport exposé par le helper de campagne.
 
-**Rejeu obligatoire des constats du MVP 0.2**
+**Statut des constats précédents et des durcissements demandés**
 
-Les identifiants T ci-dessous sont ceux du présent harnais ; la colonne « ancienne référence » évite de confondre les numérotations des deux audits.
-
-| Constat antérieur / ancienne référence | Tests MVP 0.3 | Conclusion étayée |
+| Point à contrôler | Tests / confirmations | Conclusion limitée aux preuves obtenues |
 |---|---|---|
-| Multi-rush historique | T04, T05, T06, T20 | Corrigé dans les cas testés : toutes les sources sont inventoriées et les sources suivantes peuvent alimenter les exports. Maximum 3 exports par run. |
-| Déduplication temporelle historique | T02, T03, T07–T10, T30, T31 | Conforme à l’écart minimal de 12 s par `source_id` dans les grilles et rendus testés. |
-| Générations successives sans écrasement | T11, T23 | Corrigé dans les scénarios testés : hashes de toute la génération précédente conservés ; collision retry/épuisement gérés. |
-| MAJ-01 / ancien T17 : vidéo 2 s, audio 60 s | T29, puis T36/C02 | **Cas MP4 corrigé par T29** : un vrai export vidéo de 2 s. **Règle de durée vidéo non entièrement corrigée** : fallback à la durée conteneur en MKV, T36. Aucun faux succès audio-only en T36 grâce au nouveau contrôle de présence vidéo. |
-| MAJ-02 / ancien T09 : portrait 80×160 ; 9:16 et paysage | T18, T15, T04 ; complément T16 | Corrigé dans ces formats : vidéo 1080×1920 présente et décodage intégral sans erreur. |
-| MAJ-03 : nom 300 caractères, destination invalide, collision | T22, T21, T23 | Corrigé dans les scénarios injectés : aucune exception échappée, progression arrêtée ; précédente génération conservée. La progression d’un widget Tk réel n’a pas été observée. |
-| MAJ-04 / anciens T10–T15 : corruption et export partiel | T20, T19, T33, T38, T41, C01 | Corrigé pour ces erreurs : poursuite des autres sources/candidats, erreurs et sorties valides dans le JSON ; rapport présent après création du run ; fichiers de zéro octet supprimés. |
-| MAJ-05 / anciens T11–T16 : chemin réel et symlink | T26, T30, T31, T03 | Corrigé sur Linux pour les alias testés, y compris hardlink : identité physique commune ; pas de doublon du même intervalle. |
-| MIN-01 : zéro export annoncé comme prêt | T14, T32, T34, T35, T41 | Corrigé dans ces cas : `no_usable_segment`, message « Aucun segment vidéo exploitable », warning ; aucune annonce de Shorts prêts. |
+| MAJ-01 résiduel / MKV vidéo ~2 s et audio ~60 s | T36, C02 ; MP4 T29 | **Corrigé dans les cas testés** : sélection sur la timeline vidéo 2,023 s en MKV, 2 s en MP4 ; un export vidéo exploitable dans chacun. |
+| MAJ-06 / H.264 probe-able mais indécodable | T37, T99, C03 | **Corrigé dans ce scénario** : corruption rejetée, erreur persistée, zéro export ok ; warning sans Short prêt. |
+| MAJ-07 / modification événement/partenaire pendant le rendu | T24, T44, C04 | **Corrigé dans les scénarios testés** : valeurs initiales cohérentes dans dossier, JSON et texte ; fichiers et destination également figés par snapshot. |
+| Second run_thread durant une génération | T28, T43 | **Refus démontré** : un seul worker, un warning ; T43 maintient un vrai worker à une barrière pendant le second appel. |
+| Verrou libéré après succès | T43 et contrôles processing dans les rendus | **Démontré** pour les générations terminées : processing false, attributs de snapshot nettoyés, progression arrêtée. |
+| Verrou libéré après erreur dans le worker | T21, T23, T38, T46 | **Démontré** pour ces erreurs : dans T46, échec d’écriture puis lancement suivant autorisé et réussi, deux arrêts de progression. |
+| Verrou libéré après erreur de démarrage du worker | T45, C05 | **NON CONFORME — MAJ-08** : erreur échappée, processing reste true, aucune génération active, appel suivant refusé. |
+| Multi-rush, toutes sources inventoriées, suite après source absente/corrompue | T04–T06, T19, T20, T39 | Non-régression confirmée ; erreurs par source/export conservées et autres rushs exploités. Maximum 3 exports par run. |
+| Déduplication temporelle et alias | T02, T03, T07–T10, T26, T30, T31 | Non-régression confirmée : seuil minimal 12 s par source_id, symlink/hardlink reconnus sur Linux. |
+| Generations successives et collisions | T11, T23 | Non-régression confirmée : dossiers distincts, précédente génération intacte, retry/épuisement gérés. |
+| Portrait 80×160, 9:16, carré, paysage, source silencieuse MP4/MKV | T04, T15, T16, T18, T40 | Vidéo 1080×1920 décodable dans chaque cas ; absence d’audio acceptée. |
+| Zéro export et sorties invalides | T14, T32–T35, T37, T41, T47 | Pas d’annonce de Shorts prêts lorsque zéro export ; rejet des sorties invalides testées, zéro octet supprimé, rapport conservé. |
+| Rapport après création d’un run | T19, T20, T38, T41, T46, C01 | 51/51 rapports présents et parseables dans cette campagne, y compris les runs échoués. Aucun nouveau run lors de T21, collision épuisée de T23 ou démarrage échoué de T45. |
 
-À 48 s, les trois extraits de 18 s commencent à 3/15/27 s et se chevauchent de 6 s. Ils respectent le seuil demandé de 12 s entre débuts ; ce résultat ne prouve ni l’absence de tout chevauchement ni une déduplication visuelle. L’identification physique testée ne détecte pas nécessairement deux copies de contenu sous des fichiers/inodes différents.
+La déduplication est temporelle, pas sémantique : à 48 s, starts 3/15/27 et extraits de 18 s se chevauchent de 6 s, conformément au seuil demandé de 12 s entre débuts. Détection de copies de contenu sous des inodes différents non démontrée.
 
-**Grille complète des tests**
+**Grille complète de la campagne**
 
 | Test | Scénario | Résultat observé |
 |---|---|---|
-| T01 | Syntaxe AST et import original | OK — APP_NAME = MVP 0.3. |
+| T01 | Syntaxe AST et import original | OK — syntaxe/import du commit exact, APP_NAME = MVP 0.4. |
 | T02 | Grille combinatoire 1 à 5 sources, 9 durées, source_id distincts | OK — 66 429 configurations, 0 violation : bornes, limite 3, écart >=12 s, diversité et pool de toutes les sources exploitables. |
 | T03 | Grille avec alias de source_id et source en erreur | OK — 120 configurations ; pas de doublon temporel pour la même identité, source en erreur exclue. |
 | T04 | Trois rushs distincts, rendu réel et provenance | OK — 3 H.264 1080×1920 ; sources et paramètres FFmpeg concordent avec le JSON ; 3 SHA-256 différents. |
@@ -82,11 +89,11 @@ Les identifiants T ci-dessous sont ceux du présent harnais ; la colonne « anci
 | T21 | Destination devenue un fichier | OK — Erreur signalée, aucune exception échappée, progression arrêtée ; aucun run_dir créé. |
 | T22 | Événement ASCII de 300 caractères | OK — génération réussie, slug limité à 80 caractères, nom complet dans le JSON. |
 | T23 | Horloge et UUID injectés pour une collision puis cinq collisions | OK — retry au deuxième UUID ; épuisement de 5 tentatives géré ; fichiers précédents inchangés ; progression arrêtée. |
-| T24 | Modification événement/partenaire après FFmpeg, avant les textes | ÉCHEC — texte du nouvel événement/partenaire, JSON et dossier de l’événement initial ; MAJ-07. |
+| T24 | Modification événement/partenaire après FFmpeg, avant les textes | OK — texte, JSON et dossier restent Événement initial / Partenaire test après modification du formulaire pendant le rendu. |
 | T25 | Précontrôles sans fichiers et FFmpeg absent | OK — warning et error respectivement, sans lancement de traitement. |
 | T26 | Import réel + doublon de chemin + symlink + hardlink | OK — deux imports uniques sur cinq chemins ; trois alias ignorés. |
 | T27 | Lanceur Linux/macOS direct et depuis la racine | OBSERVATION CONFIRMÉE — mode 0644 : PermissionError ; sh app/run_linux_mac.sh depuis la racine : code 2 ; MIN-02. Le test réussit en vérifiant ces défauts. |
-| T28 | Deux demandes run_thread avec double de Thread | OBSERVATION — deux workers démarrés, aucun verrou de lancement observé. Concurrence de widgets Tk réels non testée. |
+| T28 | Deux demandes run_thread avec double de Thread | OK — un seul worker simulé en attente ; second appel refusé avec warning Traitement en cours. |
 | T29 | MP4 : vidéo 2 s, audio 60 s | OK — durée sélectionnée 2 s, start 0, un export vidéo+audio de 2 s ; aucun faux succès audio-only. |
 | T30 | Même rush court par chemin réel, symlink et hardlink | OK — 3 chemins inventoriés, 1 source_id, 1 export ; alias identifiés. |
 | T31 | Rush de 48 s et son symlink | OK — 1 identité, starts 3/15/27 s ; pas de répétition du même intervalle sous deux chemins. |
@@ -94,96 +101,81 @@ Les identifiants T ci-dessous sont ceux du présent harnais ; la colonne « anci
 | T33 | Sortie 2 remplacée par un MP4 valide de mauvaises dimensions | OK — rejet 320×180, erreur Dimensions export invalides ; exports 1 et 3 maintenus. |
 | T34 | Sortie remplacée par un MP4 audio-only | OK — rejet Export sans flux vidéo ; aucune entrée ok. |
 | T35 | Sortie non nulle remplacée par du texte invalide | OK — échec ffprobe, aucune entrée ok ; erreur export enregistrée. |
-| T36 | Même vidéo 2 s/audio 60 s remuxée en MKV | ÉCHEC — duration=60.023, starts après la fin des images ; zéro Short valide malgré une vidéo exploitable ; MAJ-01 résiduel. |
-| T37 | Payloads H.264 corrompus après rendu, structure MP4 conservée | ÉCHEC — ffprobe code 0, 1080×1920, mais décodage code 69 ; export enregistré ok et annoncé prêt ; MAJ-06. |
-| T38 | Échec injecté lors de l’écriture du texte de publication | OK — status failed, erreur run, JSON de secours présent, export valide et traçabilité conservés. |
+| T36 | Même vidéo 2 s/audio 60 s remuxée en MKV | OK — fin vidéo 2,023 s au lieu du conteneur 60,023 s ; start 0, un Short vidéo de 2 s décodable. |
+| T37 | Payloads H.264 corrompus après rendu, structure MP4 conservée | OK — fichier H.264 probe-able 1080×1920 mais décodage code 69 ; rejet avec erreur Décodage vidéo de contrôle échoué, aucun export ok. |
+| T38 | Échec injecté lors de l’écriture du texte de publication | OK — status failed, JSON de secours et export valide conservés ; progression arrêtée et processing libéré. |
 | T39 | Rush valide, chemin absent et source audio-only | OK — 1 export valide, 3 sources inventoriées, 2 erreurs probe ; poursuite du traitement. |
 | T40 | Sources sans audio, MP4 et MKV | OK — un export vidéo sans audio pour chaque source. |
 | T41 | Trois sorties de 0 octet après trois encodages réussis | OK — trois tentatives, trois erreurs, zéro export ok, rapport conservé, warning. |
-| T42 | process original dans un vrai thread avec doubles d’UI tracés | OBSERVATION — get/set, start/stop et messagebox appelés depuis le worker ; arrêt observé dans les doubles ; sûreté des widgets Tk réels non démontrée. |
-| T99 | Contrôle transversal de tous les fichiers MP4 produits | ÉCHEC — 60 fichiers contrôlés, 1 export invalide enregistré ok (T37). Aucun rapport manquant parmi les runs de execute ; couverture complète des 46 runs par C01. |
+| T42 | process original dans un vrai thread avec doubles d’UI tracés | OBSERVATION — vrai thread Python ; interfaces d’UI appelées depuis le worker avec doubles ; processing libéré ; widgets Tk réels non testés. |
+| T43 | Second run_thread pendant un vrai worker arrêté à une barrière de rendu | OK — processing actif à la barrière, un seul worker créé, second appel refusé, puis succès et processing false. |
+| T44 | Snapshot initial puis édition événement/partenaire/rushs/destination avant exécution | OK — dossier/JSON/texte/source/destination restent ceux du snapshot initial. Destination modifiée non créée. |
+| T45 | Échec injecté de Thread.start avant le démarrage effectif | ÉCHEC — RuntimeError échappée ; processing reste true sans génération ; MAJ-08, confirmé par C05. |
+| T46 | Vrai worker en erreur d’écriture puis nouvelle génération réussie | OK — deux workers successifs, verrou libéré après chaque run ; status Erreur puis Terminé ; deux JSON et deux exports valides conservés. |
+| T47 | Payloads AAC corrompus après encodage, vidéo conservée | OK — rejet avec Décodage vidéo de contrôle échoué ; décodage intégral code 69 ; aucune entrée ok. |
+| T99 | Contrôle transversal de tous les fichiers MP4 produits | OK — 63 fichiers MP4 probés/décodés ; zéro fichier invalide marqué ok. C01 complète le comptage des deux rapports de T46 et confirme 58 exports ok valides. |
 
 **Défauts critiques**
 
-Aucun défaut critique reproduit dans ce périmètre. Cette conclusion ne vaut pas validation générale du produit ou de toutes ses plateformes.
+Aucun défaut critique reproduit dans le périmètre exécuté.
 
-**Défauts majeurs ouverts**
+**Défaut majeur ouvert : MAJ-08 — le verrou survit à une erreur de démarrage du thread**
 
-**MAJ-01 résiduel — la durée de repli peut encore provenir de l’audio/du conteneur**
+Localisation : `app/app.py`, lignes **49–57**, particulièrement acquisition du verrou ligne **55** et lancement ligne **57**. La libération ligne **202** n’est exécutée que si `process()` a effectivement démarré. Preuves : **T45 et C05**.
 
-Localisation : `app/app.py`, lignes 65–78, particulièrement 73–75 ; sélection lignes 88–105. Preuves : **T36, C02**, avec T29 comme contrôle positif MP4.
+Reproduction déterministe :
 
-Reproduction :
+1. Préparer une sélection valide, FFmpeg/ffprobe disponibles, `processing=False`.
+2. Injecter `RuntimeError("audit injection: can't start new thread")` dans `Thread.start()`.
+3. Appeler la méthode originale `App.run_thread()`.
+4. Examiner l’exception, le booléen et le nombre de workers ; appeler de nouveau `run_thread()` après retrait de l’injection.
 
-1. Générer un MP4 H.264 avec 2 s de vidéo et 60 s d’AAC, sans `-shortest` à la création de l’entrée.
-2. Le remuxer en MKV : `ffmpeg -i long_audio.mp4 -c copy long_audio.mkv`.
-3. Importer ce MKV et appeler le pipeline original.
-4. Contrôler les paquets vidéo, la durée enregistrée dans `sources` et les starts sélectionnés.
+Résultat : le premier appel laisse échapper `RuntimeError` après avoir affecté `processing=True`. Aucun worker et aucun run_dir n’ont été créés. Le booléen reste actif. Le second appel produit uniquement `Traitement en cours / Une génération est déjà en cours.`, alors qu’aucune génération ne travaille.
 
-Mesure réelle : le MKV ne renseigne pas `stream.duration`. Son tag vidéo donne `00:00:02.023000000`, son conteneur `60.023000`. Les quatre paquets vidéo ont des PTS 0,023 / 0,523 / 1,523 / 1,023 s, chacun de 0,5 s : la dernière image finit à 2,023 s. `probe_source()` renvoie pourtant `duration: 60.023`.
+Extrait de la confirmation indépendante :
 
-Résultat : trois starts **6,00575 / 21,0115 / 36,01725 s**, tous après les images. Trois fichiers audio-only subsistent ; chacun est rejeté avec `Export sans flux vidéo`. Le JSON indique `no_usable_segment`, zéro export valide et trois erreurs export, alors que le contrôle C02 produit bien une vidéo de 2 s à partir du même rush.
+```json
+{
+  "thread_start_calls": 1,
+  "escaped": {
+    "type": "RuntimeError",
+    "message": "audit injection: can't start new thread"
+  },
+  "processing_after_error": true,
+  "warnings_on_next_request": [
+    ["Traitement en cours", "Une génération est déjà en cours."]
+  ]
+}
+```
 
-Attendu : utiliser la durée du flux vidéo pour la sélection, même lorsque le champ `stream.duration` manque, et conserver au moins le segment vidéo exploitable. Le rejet des sorties audio-only est efficace ; il ne répare pas la sélection erronée. Impact : un format explicitement accepté par le sélecteur de fichiers perd tout son contenu vidéo et donne à tort « aucun segment exploitable ».
+Attendu, selon le mandat : libérer le verrou après erreur et permettre un nouveau lancement. Une erreur de démarrage doit être signalée sans laisser un état « traitement en cours » permanent. Le `finally` du worker ne peut pas assurer cette libération si ce worker n’a jamais démarré.
 
-Condition de levée : rejouer T29 et T36, vérifier la durée vidéo par une mesure indépendante des images/paquets et obtenir des sorties vidéo 1080×1920 décodables sans audio-only enregistré `ok`. **MAJ-01 n’est levé que pour le cas MP4 historique.**
+Impact : après une erreur de lancement, toutes les demandes suivantes restent bloquées dans la même instance ; l’interface ne prévoit aucun reset de processing. **Aucune perte de données ni saturation spontanée n’a été observée.** La gravité retenue est majeure car ce chemin échoue au contrôle explicite de libération du verrou et rend toute nouvelle génération impossible sans recréer l’instance.
 
-**MAJ-06 — un export aux dimensions correctes peut être déclaré `ok` avec des images indécodables**
+Condition de levée : prendre en charge l’échec de construction/démarrage et remettre l’état à disponible lorsque le worker n’a pas démarré. Rejouer T45/C05 pour obtenir aucun échappement non géré, processing false, puis une génération effectivement autorisée. Conserver T43 (second appel refusé pendant le run) et T46 (verrou libéré après erreur interne puis succès). Aucun correctif réalisé par cet audit.
 
-Localisation : `app/app.py`, lignes 117–125 (`verify_export`) et 158–160 (acceptation dans le rapport). Preuves : **T37, T99, C03** ; contrôles négatifs complémentaires T32–T35.
+**Mineurs et limites toujours ouverts**
 
-Reproduction par injection documentée : encoder normalement le rush de 2 s ; après le retour réussi de FFmpeg, avant `verify_export`, remplacer par des zéros les payloads des quatre paquets H.264 aux positions/taille trouvées par `ffprobe -show_packets`. La structure MP4 et ses métadonnées restent intactes. Le harnais exécute ensuite le vérificateur original et le reste du pipeline sans modification.
+- **MIN-02 : lanceur Linux non exécutable et dépendant du répertoire courant.** T27 reproduit mode 0644, PermissionError en exécution directe, code 2 de `sh app/run_linux_mac.sh` depuis la racine. Le README indique une alternative en lançant `python app.py` depuis `app/`. Le comportement macOS n’a pas été exécuté.
+- **MIN-03 : documentation de version décalée.** `app/README.md` affiche toujours MVP 0.2, alors que T01 vérifie APP_NAME MVP 0.4. La roadmap reste un plan ; aucune séparation moteur/UI ni suite de tests livrée dans `app/` n’est démontrée. Preuves : lecture intégrale et arbre Git exact.
+- Les erreurs partielles T19/T20 restent visibles dans `rapport.json` ; le message final d’UI simulée annonce le nombre de sorties sans récapitulatif de ces erreurs. Ce constat ne retire pas la traçabilité et la poursuite prouvées.
+- **Tk/thread : sûreté des widgets réels non validée.** T42 trace encore, dans un vrai thread Python avec doubles, les interfaces de variables, progression et messagebox depuis le worker. `process` effectue aussi des appels d’UI avant son try (lignes 143–150). Aucun crash Tk ni absence de crash Tk n’est déclaré reproduit. Windows/macOS, double lancement avec widgets réels et fermeture de fenêtre en cours de rendu restent à exercer dans une session graphique.
 
-Fichier mesuré : **69 596 octets**, SHA-256 `3cfba810b966dc6fff304265c0367917678922f21fbb6db1ec978ad9919f4fca`. ffprobe retourne le code **0** avec une piste vidéo déclarée **1080×1920**, durée **2.000000**, quatre images annoncées dans les métadonnées. Le décodage réel retourne le code **69** et des erreurs `Invalid NAL unit size`, `Error splitting the input into NAL units`, `Decoding error: Invalid data found when processing input`. Aucun décodage vidéo correct n’est établi.
+**Fonctions hors périmètre et portée produit**
 
-Le vérificateur original retourne pourtant `True`. Le rapport contient une entrée `status: ok`, `status: completed`, `errors: []`, et le statut annonce « Terminé : 1 Shorts prêts à valider ». Le nouvel anti-audio-only et les vérifications de dimensions passent leurs cas de T32–T35, mais ne suffisent pas contre cette corruption.
+Le moteur reste une sélection à fractions temporelles fixes 25/50/75 %, avec recadrage central et bandeau fixe. Import multiple, provenance, exports locaux versionnés et texte social générique sont constatés. La liste des partenaires alimente le texte ; aucun Sponsor Manager n’est présent.
 
-Attendu : un export invalide ne doit jamais être enregistré `ok`. Impact : la validation proposée à l’utilisateur repose sur un contrôle de métadonnées qui accepte un fichier sans images décodables. La corruption a été provoquée pour tester ce garde-fou ; **aucune fréquence de corruption spontanée ni défaut spontané d’encodage FFmpeg n’est affirmé**.
+Toujours absents et non déclarés présents : transcription/sous-titres, scoring hockey intelligent, sélection multimodale, suivi intelligent 9:16, Sponsor Manager, reporting partenaire. Des dépendances déclarées dans requirements ne prouvent pas une intégration. Le rappel de validation humaine ne démontre pas un circuit éditorial complet. Aucune audience, pertinence hockey, qualité de cadrage d’un match réel ou économie de temps bénévole mesurée par cette campagne.
 
-Condition de levée : rejouer T37 et le contrôle global T99 ; exclure cette sortie de `exports` et tracer l’erreur de validation, tout en conservant les exports valides. Contrôler les images/durée réellement exploitables et le décodage avant acceptation.
+**Décision finale**
 
-**MAJ-07 — une modification du formulaire désynchronise le texte de publication et la génération**
+**BLOQUÉ** sur `351aff8f7679dbce7029533a43f72ccfe05e5704` pour **MAJ-08**, malgré les trois anciens blocages désormais levés dans les cas testés et les 58 exports ok décodables. La condition demandée « verrou libéré après erreur » n’est pas remplie au démarrage. Ce verdict ne suppose pas un crash graphique non reproduit. Après correction et retest, la candidature du moteur pourra être réévaluée ; la sûreté de l’UI devra faire l’objet d’essais graphiques séparés. Aucun changement de `main`.
 
-Localisation : `app/app.py`, lignes 23–24 (champs éditables), 130–133 (rapport/dossier initial), 166–167 (nouvelle lecture des champs). Preuve : **T24**.
+**Annexe — contrôle individuel de toutes les sorties laissées**
 
-Reproduction : démarrer avec `Événement initial` et `Partenaire test` ; après l’encodage, modifier les variables en `Autre événement` et `Autre partenaire` avant la création du texte. Ce changement est injecté de façon déterministe ; il ne dépend pas d’un timing manuel dans une fenêtre.
+« ok » désigne la valeur réellement enregistrée dans un rapport JSON, retrouvée par C01. Les 63 fichiers ont été probés et décodés intégralement. Les deux générations T46 sont distinguées par leur statut global : l’export valide du run failed est bien marqué ok et contrôlé.
 
-Résultat observé :
-
-- dossier : `v_nement_initial/run_*` ;
-- `rapport.json` : `event = Événement initial`, `sponsors = Partenaire test`, un export valide, aucune erreur ;
-- `publication_proposee.txt` : titre `Autre événement | Les Sentinelles`, description contenant `Autre événement` et `Autre partenaire` ;
-- statut : génération terminée avec un Short prêt à valider.
-
-Attendu : le texte et le rapport d’une même génération doivent employer les mêmes paramètres événement/partenaires. Impact : texte destiné à un autre événement ou à un autre partenaire, alors que la traçabilité du run reste liée aux valeurs initiales. La validation humaine est toujours demandée, mais elle reçoit des éléments contradictoires.
-
-Condition de levée : figer les entrées d’une génération ou empêcher leur modification pendant le run, puis rejouer T24 en vérifiant JSON, dossier, titre et partenaires. Ce défaut est reproduit dans les fonctions originales avec doubles de variables ; la saisie physique dans l’interface Tk n’a pas été testée.
-
-**Défauts mineurs et observations**
-
-**MIN-02 — lanceur Linux/macOS dépendant du répertoire courant et non exécutable.** Preuve T27 ; fichier `app/run_linux_mac.sh`, mode Git `100644`, contenu `python3 app.py`. Exécution directe depuis `app/` : `PermissionError`. Depuis la racine : `sh app/run_linux_mac.sh` retourne 2, car Python cherche `app.py` à la racine. Le README donne une alternative `python app.py` lorsque l’utilisateur se place dans `app/`. Condition de levée : rejouer les deux modes de lancement depuis des répertoires pertinents ; sur une session graphique, vérifier le démarrage réel. macOS n’a pas été exécuté.
-
-**MIN-03 — documentation de version décalée.** Lecture intégrale de `app/README.md` : titre et capacités décrites comme MVP 0.2 ; T01 établit que l’application est MVP 0.3. `app/ROADMAP.md` place encore tests automatisés et séparation moteur/UI dans la version 0.3 ; le snapshot contient seulement les six fichiers listés, sans suite de tests livrée ni moteur séparé. La roadmap est un plan, pas la preuve qu’une fonctionnalité existe. Condition de levée du décalage : aligner la documentation sur le périmètre réellement livré. Aucun fichier n’a été changé pour cela.
-
-Les erreurs partielles de T19/T20 sont conservées dans `rapport.json`, mais l’UI simulée reçoit seulement l’annonce finale du nombre d’exports. Le statut JSON reste `completed` dès qu’un export existe. Cette observation ne remet pas en cause la poursuite et la traçabilité démontrées ; elle indique que l’affichage d’un résumé d’erreurs n’a pas été livré.
-
-**Tk/thread — risque examiné, sûreté non validée.** T28 observe deux appels à `run_thread()` qui lancent deux workers, sans garde observée. T42 exécute le vrai `process` dans un thread Python et trace des appels aux interfaces de variables, progression et messagebox depuis ce worker. Le code n’effectue pas de transfert explicite vers la boucle UI. Les appels `progress.start`, `status.set` et les lectures initiales de formulaire se trouvent avant le `try` principal. Avec les doubles, l’arrêt de progression fonctionne dans les cas testés ; cela ne démontre pas le comportement des widgets Tk réels. Aucun crash Tk, blocage graphique ou absence de crash n’est déclaré reproduit. Windows, macOS, fermeture de fenêtre en cours de traitement et double lancement avec widgets réels restent à exercer dans une session graphique.
-
-**Périmètre fonctionnel réellement constaté**
-
-Le pipeline actuel importe/inventorie plusieurs rushs, génère des candidats aux fractions temporelles fixes 25/50/75 %, sélectionne au maximum trois extraits avec écart minimal de début par identité, recadre au centre et dessine un bandeau fixe « LES SENTINELLES ». Il produit des fichiers locaux versionnés, un texte social générique et un rapport de provenance. Le champ partenaires alimente ce texte ; il ne constitue pas un Sponsor Manager ou une intégration de règles partenaires.
-
-La présence de dépendances `faster-whisper`/`scenedetect` dans `requirements.txt` ne prouve aucune intégration : aucune transcription, aucun sous-titre, aucun scoring hockey intelligent, aucune sélection multimodale, aucun suivi intelligent 9:16, aucun Sponsor Manager et aucun reporting partenaire ne sont déclarés présents. Aucune mesure de pertinence hockey, de qualité du cadrage en action réelle, de gain de temps bénévole ou d’audience commerciale n’a été réalisée. L’application rappelle la validation humaine ; un circuit de validation éditoriale complet n’est pas démontré.
-
-**Décision et conditions du prochain audit**
-
-**BLOQUÉ** sur le commit `a318dde642e6ab542ae602b6b0b83a70876631c9` : MAJ-01 résiduel, MAJ-06 et MAJ-07 reproduits. Les progrès prouvés ne suffisent pas à déclarer ce commit `CANDIDAT` ou `VALIDÉ`. Lever ces trois constats avec les retests indiqués, conserver les réussites historiques et refaire les essais Tk dans un environnement graphique avant une déclaration de sûreté UI. Aucun passage vers `main` effectué.
-
-**Annexe — contrôle individuel des sorties**
-
-Pour chaque fichier laissé par le pipeline : ffprobe réel, présence/dimensions de la vidéo, durée vidéo déclarée lorsqu’elle est disponible, puis décodage complet `ffmpeg -v error -i FICHIER -f null -`. « ok » ci-dessous est la valeur du rapport de l’application, pas le verdict de l’auditeur. Le code 0 avec stderr vide signifie décodage réussi ; il ne transforme pas un fichier audio-only en vidéo. Les sorties de zéro octet T19/T32/T41 ont été supprimées par l’application et ne figurent pas comme fichiers laissés.
-
-| Test | Fichier | Octets | Vidéo selon ffprobe | Durée vidéo (s) | Décodage FFmpeg | Rapport exports |
+| Test/run | Fichier | Octets | Vidéo selon ffprobe | Durée vidéo (s) | Décodage FFmpeg | Statut export |
 |---|---|---:|---|---|---|---|
 | T04 | short_01_9x16.mp4 | 69596 | 1080×1920 | 2.000000 | 0 / stderr vide | ok |
 | T04 | short_02_9x16.mp4 | 70385 | 1080×1920 | 2.000000 | 0 / stderr vide | ok |
@@ -237,62 +229,63 @@ Pour chaque fichier laissé par le pipeline : ffprobe réel, présence/dimension
 | T33 | short_03_9x16.mp4 | 69540 | 1080×1920 | 2.000000 | 0 / stderr vide | ok |
 | T34 | short_01_9x16.mp4 | 18785 | aucune vidéo | — | 0 / stderr vide | exclu |
 | T35 | short_01_9x16.mp4 | 26 | ffprobe en échec | — | 183 / erreurs | exclu |
-| T36 | short_01_9x16.mp4 | 100708 | aucune vidéo | — | 0 / stderr vide | exclu |
-| T36 | short_02_9x16.mp4 | 34298 | aucune vidéo | — | 0 / stderr vide | exclu |
-| T36 | short_03_9x16.mp4 | 131679 | aucune vidéo | — | 0 / stderr vide | exclu |
-| T37 | short_01_9x16.mp4 | 69596 | 1080×1920 | 2.000000 | 69 / erreurs | ok |
+| T36 | short_01_9x16.mp4 | 99569 | 1080×1920 | 2.000000 | 0 / stderr vide | ok |
+| T37 | short_01_9x16.mp4 | 69596 | 1080×1920 | 2.000000 | 69 / erreurs | exclu |
 | T38 | short_01_9x16.mp4 | 69596 | 1080×1920 | 2.000000 | 0 / stderr vide | ok |
 | T39 | short_01_9x16.mp4 | 69596 | 1080×1920 | 2.000000 | 0 / stderr vide | ok |
 | T40_r1 | short_01_9x16.mp4 | 69596 | 1080×1920 | 2.000000 | 0 / stderr vide | ok |
 | T40_silent_mkv | short_01_9x16.mp4 | 69596 | 1080×1920 | 2.000000 | 0 / stderr vide | ok |
+| T43 | short_01_9x16.mp4 | 69596 | 1080×1920 | 2.000000 | 0 / stderr vide | ok |
+| T44 | short_01_9x16.mp4 | 69596 | 1080×1920 | 2.000000 | 0 / stderr vide | ok |
+| T46 (failed) | short_01_9x16.mp4 | 69596 | 1080×1920 | 2.000000 | 0 / stderr vide | ok |
+| T46 (completed) | short_01_9x16.mp4 | 69596 | 1080×1920 | 2.000000 | 0 / stderr vide | ok |
+| T47 | short_01_9x16.mp4 | 99151 | 1080×1920 | 2.000000 | 69 / erreurs | exclu |
 
-Contrôle C02 extérieur au pipeline : `mkv_at_actual_video_start.mp4`, vidéo 1080×1920 de 2 s, AAC 2 s ; rendu code 0, ffprobe code 0, décodage code 0, stderr vide. Il prouve que les images de la source MKV sont exploitables et ne constitue pas une correction de l’application.
+Les sorties invalides non nulles sont conservées sur disque mais exclues des exports ok et reliées à une erreur du JSON. Les fichiers à zéro octet de T19/T32/T41 sont supprimés.
 
-**Annexe — intégrité de l’application**
+**Annexe — empreintes de l’application**
 
-SHA-256 des octets avant/après ; comparaison exacte, mêmes chemins et mêmes six fichiers. Aucun `__pycache__` ajouté dans `app/`.
+Même inventaire, mêmes octets avant/après ; aucune écriture dans `app/`.
 
 | Fichier | SHA-256 identique avant/après |
 |---|---|
 | app/README.md | `9a6fd2e07bfa16230b0ecb425d83dde33e91024a0573a3e8cc10a168a1952412` |
 | app/ROADMAP.md | `e98b00f8ec9dc508fb675f01aa96bef1a86f181c465e8b760e66cae4e0fcd25b` |
-| app/app.py | `2f9ee1bcfdd03c390a846fad652e605f31465901c2f71efaa80a60ff3c611b78` |
+| app/app.py | `60b24e8bd0f6769114e0805c5870188a4c275270a6f315416892f0635191b617` |
 | app/requirements.txt | `be654442659daf5deace60880d5b13bda39c702793ff78a0e6ea2ddd2e7ef64b` |
 | app/run_linux_mac.sh | `1a1032a1498d3370155a0ff2952d26bfcc88a68cad53c9f1a473189e5f8fca16` |
 | app/run_windows.bat | `92f53ecbc23b49cf50624c8de78dc5dbbb119237c1ac45fc03e0ff2dd3e76f5e` |
 
-**Annexe — reproductions autonomes**
+**Annexe — reproduction autonome**
 
-Copier les deux blocs Python ci-dessous dans `/tmp/audit_v03.py` et `/tmp/confirm_v03.py`. Ils doivent être exécutés hors du dépôt. Utiliser un répertoire de résultats **neuf**, car les fixtures contiennent des liens créés au lancement. Les dimensions, codes et statuts sont les preuves portables ; les timestamps, identités inode et hashes d’encodage peuvent varier selon la machine/version de FFmpeg.
+Copier les deux blocs Python dans `/tmp/audit_v04.py` et `/tmp/confirm_v04.py`. Les exécuter hors du dépôt avec un répertoire de résultats neuf. Les identités inode, timestamps et hashes d’encodage peuvent varier selon les machines ; dimensions, statuts, erreurs et décodages constituent les critères reproductibles.
 
 ```sh
-git clone --branch develop https://github.com/noobstrade/sentinelles-content-factory.git /tmp/sentinelles-mvp03
-git -C /tmp/sentinelles-mvp03 checkout --detach a318dde642e6ab542ae602b6b0b83a70876631c9
-PYTHONDONTWRITEBYTECODE=1 python3 /tmp/audit_v03.py /tmp/sentinelles-mvp03 /tmp/sentinelles-audit03-resultats-neufs
-PYTHONDONTWRITEBYTECODE=1 python3 /tmp/confirm_v03.py /tmp/sentinelles-mvp03 /tmp/sentinelles-audit03-resultats-neufs
+git clone --branch develop https://github.com/noobstrade/sentinelles-content-factory.git /tmp/sentinelles-mvp04
+git -C /tmp/sentinelles-mvp04 checkout --detach 351aff8f7679dbce7029533a43f72ccfe05e5704
+PYTHONDONTWRITEBYTECODE=1 python3 /tmp/audit_v04.py /tmp/sentinelles-mvp04 /tmp/sentinelles-audit04-resultats-neufs
+PYTHONDONTWRITEBYTECODE=1 python3 /tmp/confirm_v04.py /tmp/sentinelles-mvp04 /tmp/sentinelles-audit04-resultats-neufs
 ```
 
-Le premier script retourne **1 attendu sur ce commit**, car les quatre assertions T24/T36/T37/T99 échouent ; il écrit néanmoins `evidence.json` avec tous les résultats. Le second script doit être lancé ensuite, séparément ; il écrit `confirmations.json` et retourne 0 lorsque les trois confirmations sont établies. Python standard, Tk importable, FFmpeg/ffprobe avec libx264 et drawtext suffisent. Aucune installation d’un service IA n’est utilisée.
+Le premier script retourne **1 attendu sur ce commit** pour T45, mais écrit quand même `evidence.json` avec les 48 tests. Lancer ensuite le second script séparément ; il confirme le défaut et les corrections, vérifie tous les rapports/exports ok, écrit `confirmations.json` et retourne 0 si ces confirmations sont établies. Python standard, Tk importable, FFmpeg/ffprobe avec libx264 et drawtext suffisent ; aucune dépendance IA utilisée.
 
-| Script exécuté et reproduit ci-dessous | SHA-256 |
+| Script final exécuté, reproduit ci-dessous | SHA-256 |
 |---|---|
-| audit_v03.py | `e6b0d6808b006c1dcb1cb09e5a3ebcba8995d0bf60069461a30e434ebc1e1f75` |
-| confirm_v03.py | `10d87ced6ee33d5239692aba64469cecebc0c3ab3ac421630bac7ba73daeb568` |
+| audit_v04.py | `9a531575fe5870f47a6790fb39498602e23492b9a29f8a859f428eedbb150b26` |
+| confirm_v04.py | `c1ce34982562985a4955f222f7fed495ba9201c2c8ab1471dd71088906205dde` |
 
-Empreintes des traces d’exécution originales ; ces traces sont résumées dans ce rapport et peuvent être régénérées par les scripts :
-
-| Trace | SHA-256 de cette exécution |
+| Trace retenue pour cet audit | SHA-256 de l’exécution |
 |---|---|
-| test_run_v03.log | `6ae974d9a4a6c634fd04ff49f2f1eb302779ef623f1b9826233477c32f0c08b8` |
-| confirm_run_v03.log | `e8d137f38502db9f81bcd178885e7843b0a3d8ff31d63630b089865668cf038e` |
-| execution_v03/evidence.json | `591a454e729997b507ddae7c68f927abfda2ec439c7ca38903a5a505bb0c242d` |
-| execution_v03/confirmations.json | `4dbe3c332c31e237ba202b897faeeb0034337e4c37715f77ba3cda2a438b5de2` |
+| test_run_v04_final.log | `d9bff04fc32abf26f1a9116f3eb398ad062611567484e081238e2c2417a6b980` |
+| confirm_run_v04.log | `03c3add68da5a63fbdc823b1a669eede4354cf9982b503264653500cff05c7ee` |
+| execution_v04_final/evidence.json | `9f3f9a2a5af5f975f2827571ba506923c915a5b96c5d5302ae9156cba6e350bf` |
+| execution_v04_final/confirmations.json | `6d25ed646030a71fa0bc567c6d82d8511b1cf1a859b6b0f9154eeff7cd5fcd4f` |
 
-**Code de `audit_v03.py`**
+**Code de `audit_v04.py`**
 
 ```python
-"""Independent MVP 0.3 audit. No application file is modified.
-Usage: PYTHONDONTWRITEBYTECODE=1 python3 audit_v03.py /path/to/repo /new/output/dir
+"""Independent MVP 0.4 audit. No application file is modified.
+Usage: PYTHONDONTWRITEBYTECODE=1 python3 audit_v04.py /path/to/repo /new/output/dir
 """
 import ast
 import hashlib
@@ -322,6 +315,7 @@ spec.loader.exec_module(module)
 App = module.App
 REAL_RUN = subprocess.run
 REAL_CHECK = subprocess.check_output
+REAL_THREAD = module.threading.Thread
 EVIDENCE = {}
 FIXTURES = ROOT/'fixtures'
 FIXTURES.mkdir(exist_ok=True)
@@ -397,15 +391,16 @@ class Progress:
 
 def runner(output,files,event='Événement test',sponsor='Partenaire test'):
     x=SimpleNamespace(output=Path(output),files=[str(FILES.get(f,f)) for f in files],
-                      event=Value(event),sponsor=Value(sponsor),status=Value('Prêt'),progress=Progress())
+                      event=Value(event),sponsor=Value(sponsor),status=Value('Prêt'),progress=Progress(),processing=False)
     for name in ['event_slug','source_id','probe_source','build_candidates','select_candidates','verify_export']:
         setattr(x,name,getattr(App,name))
     x.duration=lambda f:App.duration(x,f)
     x.new_run_dir=lambda:App.new_run_dir(x)
+    x.process=lambda snapshot=None:App.process(x,snapshot)
     return x
 
-def corrupt_packets(path):
-    data=json.loads(REAL_CHECK(['ffprobe','-v','error','-select_streams','v:0','-show_packets',
+def corrupt_packets(path,stream="v:0"):
+    data=json.loads(REAL_CHECK(['ffprobe','-v','error','-select_streams',stream,'-show_packets',
                                '-show_entries','packet=pos,size','-of','json',str(path)],text=True))
     b=bytearray(path.read_bytes())
     for packet in data['packets']:
@@ -415,17 +410,19 @@ def corrupt_packets(path):
     return data['packets']
 
 def execute(identifier,files,event='Événement test',output=None,hook=None,
-            render_failure=None,publication_failure=False):
+            render_failure=None,publication_failure=False,driver=None,before_render=None):
     output=Path(output or ROOT/identifier)
     if not output.exists(): output.mkdir(parents=True)
     x=runner(output,files,event)
+    if driver is None:x.processing=True
     messages=[];commands=[];escaped=None
     before_dirs=set(output.rglob('run_*')) if output.is_dir() else set()
     write_text=Path.write_text
     def run(cmd,*args,**kwargs):
-        is_render=cmd[0]=='ffmpeg'
+        is_render=cmd[0]=='ffmpeg' and '-c:v' in cmd and '-vf' in cmd
         if is_render:
             commands.append(cmd[:])
+            if before_render:before_render(x,cmd)
             if render_failure is not None and len(commands)==render_failure:
                 Path(cmd[-1]).write_bytes(b'')
                 raise subprocess.CalledProcessError(1,cmd,stderr='audit injection: failed export')
@@ -433,7 +430,7 @@ def execute(identifier,files,event='Événement test',output=None,hook=None,
         if hook and is_render: hook(x,cmd)
         return result
     def write(path,*args,**kwargs):
-        if publication_failure and path.name=='publication_proposee.txt':
+        if publication_failure and path.name=='publication_proposee.txt' and (not callable(publication_failure) or publication_failure(path)):
             raise PermissionError('audit injection: publication write denied')
         return write_text(path,*args,**kwargs)
     with patch.object(module.subprocess,'run',side_effect=run), \
@@ -441,7 +438,9 @@ def execute(identifier,files,event='Événement test',output=None,hook=None,
          patch.object(module.messagebox,'showinfo',side_effect=lambda *a:messages.append(['info',*a])), \
          patch.object(module.messagebox,'showwarning',side_effect=lambda *a:messages.append(['warning',*a])), \
          patch.object(module.messagebox,'showerror',side_effect=lambda *a:messages.append(['error',*a])):
-        try: App.process(x)
+        try:
+            if driver:driver(x)
+            else:App.process(x)
         except Exception as e: escaped={'type':type(e).__name__,'message':str(e)}
     after_dirs=set(output.rglob('run_*')) if output.is_dir() else set()
     created=sorted(after_dirs-before_dirs)
@@ -460,7 +459,7 @@ def execute(identifier,files,event='Événement test',output=None,hook=None,
             exports.append(item)
     evidence={'inputs':x.files,'event_input':event,'status':x.status.get(),
               'progress_active':x.progress.active,'progress_starts':x.progress.starts,'progress_stops':x.progress.stops,
-              'escaped':escaped,'messages':messages,'run_dirs':[str(p) for p in created],
+              'escaped':escaped,'processing':x.processing,'run_snapshot_attrs_remaining':[a for a in ('_run_output','_run_event') if hasattr(x,a)],'driver_observations':getattr(x,'audit_dispatch',None),'messages':messages,'run_dirs':[str(p) for p in created],
               'reports':reports,'commands':commands,'report':report,'publication':copy,'outputs':exports}
     EVIDENCE[identifier]=evidence
     return evidence
@@ -474,10 +473,13 @@ class AuditTests(unittest.TestCase):
     def assert_finished(self,r):
         self.assertIsNone(r['escaped'])
         self.assertFalse(r['progress_active'])
-        self.assertEqual(r['progress_stops'],1)
+        self.assertGreater(r['progress_starts'],0)
+        self.assertEqual(r['progress_stops'],r['progress_starts'])
         self.assertIsNotNone(r['report'])
         self.assertTrue(all(item['exists'] for item in r['reports']))
-        self.assertEqual(r['report']['schema_version'],'0.3')
+        self.assertEqual(r['report']['schema_version'],'0.4')
+        self.assertFalse(r['processing'])
+        self.assertEqual(r['run_snapshot_attrs_remaining'],[])
 
     def assert_render_ok(self,r,count):
         self.assert_finished(r)
@@ -503,7 +505,7 @@ class AuditTests(unittest.TestCase):
 
     def test_T01_syntax_and_import(self):
         ast.parse((REPO/'app/app.py').read_text())
-        self.assertEqual(module.APP_NAME,'Sentinelles Content Factory MVP 0.3')
+        self.assertEqual(module.APP_NAME,'Sentinelles Content Factory MVP 0.4')
         EVIDENCE['T01']={'syntax':'OK','import':'OK'}
 
     def test_T02_selection_combinatorial_grid(self):
@@ -698,7 +700,8 @@ class AuditTests(unittest.TestCase):
         with patch.object(module.shutil,'which',return_value=None),patch.object(module.messagebox,'showerror',side_effect=lambda *a:messages.append(a)):
             App.run_thread(x)
         self.assertEqual(len(messages),1)
-        EVIDENCE['T25']={'empty_selection':'warning','missing_ffmpeg':'error'}
+        self.assertFalse(x.processing)
+        EVIDENCE['T25']={'empty_selection':'warning','missing_ffmpeg':'error','processing':x.processing}
 
     def test_T26_pick_deduplicates_real_path_symlink_and_hardlink(self):
         items=[]
@@ -718,14 +721,19 @@ class AuditTests(unittest.TestCase):
                          'from_repo_root_exit':from_root.returncode,'from_repo_root_stderr':from_root.stderr}
 
     def test_T28_two_starts_thread_observation(self):
-        x=runner(ROOT/'T28',['r1']);x.process=lambda:None;starts=[]
+        x=runner(ROOT/'T28',['r1']);starts=[]
         class FakeThread:
             def __init__(self,**kwargs):pass
             def start(self):starts.append('started')
-        with patch.object(module.threading,'Thread',FakeThread):
+        messages=[]
+        with patch.object(module.threading,'Thread',FakeThread),patch.object(module.messagebox,'showwarning',side_effect=lambda *a:messages.append(a)):
             App.run_thread(x);App.run_thread(x)
-        self.assertEqual(len(starts),2)
-        EVIDENCE['T28']={'two_requests_start_two_workers':True,'actual_Tk_concurrency':'not tested'}
+        self.assertEqual(len(starts),1)
+        self.assertEqual(len(messages),1)
+        self.assertEqual(messages[0][0],'Traitement en cours')
+        self.assertTrue(x.processing)
+        EVIDENCE['T28']={'workers_started':1,'second_refused':True,'warnings':messages,
+                         'processing_while_worker_pending':x.processing,'actual_Tk_concurrency':'not tested'}
 
     def test_T29_mp4_video_2s_audio_60s(self):
         r=execute('T29',['long_audio']);EVIDENCE['T29']['input_probe']=probe(FILES['long_audio'])
@@ -793,6 +801,8 @@ class AuditTests(unittest.TestCase):
         self.assertNotEqual(r['outputs'][0]['decode'],{'returncode':0,'stderr':''})
         self.assertEqual(r['report']['exports'],[],
                          'Corrupted H.264 is marked status: ok despite full-decoder errors')
+        self.assert_no_output(r)
+        self.assertEqual(r['report']['errors'][0]['error'],'Décodage vidéo de contrôle échoué')
 
     def test_T38_publication_write_failure_keeps_report_and_valid_exports(self):
         r=execute('T38',['r1'],publication_failure=True);self.assert_finished(r)
@@ -841,16 +851,114 @@ class AuditTests(unittest.TestCase):
                 return super().stop()
         x.event=TracedValue('Threads');x.sponsor=TracedValue('Partenaire');x.status=TracedValue('Prêt')
         x.progress=TracedProgress()
+        x.processing=True
         x.files=[str(FILES['half_second'])]
         def dialog(*args):calls.append({'method':'messagebox double','thread':module.threading.get_ident()})
         with patch.object(module.messagebox,'showwarning',side_effect=dialog):
             t=module.threading.Thread(target=lambda:App.process(x))
             t.start();t.join(timeout=10)
-        self.assertFalse(t.is_alive());self.assertFalse(x.progress.active)
+        self.assertFalse(t.is_alive());self.assertFalse(x.progress.active);self.assertFalse(x.processing)
         self.assertTrue(any(c['thread']!=ident for c in calls))
         EVIDENCE['T42']={'main_thread':ident,'calls':calls,
                          'actual_Tk_widgets':'not tested; no DISPLAY/Xvfb',
                          'conclusion':'original process calls UI interfaces from worker thread'}
+
+
+    def test_T43_actual_worker_second_start_refused_and_success_unlocks(self):
+        ready=module.threading.Event();release=module.threading.Event();workers=[]
+        def pause(x,cmd):
+            ready.set()
+            if not release.wait(timeout=15):raise RuntimeError('audit barrier timeout')
+        def factory(**kwargs):
+            t=REAL_THREAD(**kwargs);workers.append(t);return t
+        def drive(x):
+            with patch.object(module.threading,'Thread',side_effect=factory):
+                App.run_thread(x)
+                if not ready.wait(timeout=15):
+                    release.set();raise RuntimeError('worker did not reach rendering barrier')
+                active=x.processing
+                App.run_thread(x)
+                count=len(workers)
+                release.set()
+                for t in workers:t.join(timeout=20)
+                x.audit_dispatch={'processing_at_barrier':active,'workers_created':count,
+                                  'workers_alive_after_join':sum(t.is_alive() for t in workers)}
+        r=execute('T43',['r1'],driver=drive,before_render=pause);self.assert_render_ok(r,1)
+        self.assertEqual(r['driver_observations'],
+                         {'processing_at_barrier':True,'workers_created':1,'workers_alive_after_join':0})
+        self.assertEqual(sum(m[0]=='warning' and m[1]=='Traitement en cours' for m in r['messages']),1)
+
+    def test_T44_snapshot_frozen_before_worker_and_despite_form_edits(self):
+        pending=[]
+        class DeferredThread:
+            def __init__(self,**kwargs):self.kwargs=kwargs
+            def start(self):pending.append(self.kwargs)
+        def drive(x):
+            with patch.object(module.threading,'Thread',DeferredThread):App.run_thread(x)
+            initial=pending[0]['args'][0]
+            x.event.set('Autre événement');x.sponsor.set('Autre partenaire')
+            x.files[:]=[str(FILES['r2'])]
+            x.output=ROOT/'T44_other_output'
+            pending[0]['target'](*pending[0]['args'])
+            x.audit_dispatch={'snapshot_event':initial['event'],'snapshot_sponsor':initial['sponsor'],
+                              'snapshot_files':initial['files'],'snapshot_output':str(initial['output']),
+                              'current_files':x.files,'current_output':str(x.output),
+                              'current_event':x.event.get(),'current_sponsor':x.sponsor.get()}
+        r=execute('T44',['r1'],'Événement initial',driver=drive);self.assert_render_ok(r,1)
+        self.assertEqual(r['report']['event'],'Événement initial')
+        self.assertEqual(r['report']['sponsors'],'Partenaire test')
+        self.assertEqual(r['report']['sources'][0]['file'],str(FILES['r1']))
+        self.assertEqual(Path(r['run_dirs'][0]).parent.parent,ROOT/'T44')
+        self.assertEqual(r['publication'].splitlines()[0],'Titre proposé : Événement initial | Les Sentinelles')
+        self.assertIn('Partenaire test',r['publication'])
+        self.assertNotIn('Autre partenaire',r['publication'])
+        self.assertFalse((ROOT/'T44_other_output').exists())
+
+    def test_T45_thread_start_failure_must_release_processing_lock(self):
+        class CannotStartThread:
+            def __init__(self,**kwargs):pass
+            def start(self):raise RuntimeError("audit injection: can't start new thread")
+        def drive(x):
+            with patch.object(module.threading,'Thread',CannotStartThread):App.run_thread(x)
+        r=execute('T45',['r1'],driver=drive)
+        self.assertEqual((r['escaped'],r['processing']),(None,False),
+                         'Thread-start error escapes and leaves processing True with no running generation')
+        self.assertEqual(r['run_dirs'],[])
+
+    def test_T46_lock_released_after_error_then_next_generation_succeeds(self):
+        workers=[];write_attempts=[]
+        def fail_once(path):
+            write_attempts.append(str(path))
+            return len(write_attempts)==1
+        def factory(**kwargs):
+            t=REAL_THREAD(**kwargs);workers.append(t);return t
+        def drive(x):
+            states=[]
+            with patch.object(module.threading,'Thread',side_effect=factory):
+                for _ in range(2):
+                    App.run_thread(x);workers[-1].join(timeout=20)
+                    if workers[-1].is_alive():raise RuntimeError('audit worker timeout')
+                    states.append({'processing':x.processing,'status':x.status.get()})
+            x.audit_dispatch={'workers_created':len(workers),'after_each_run':states}
+        r=execute('T46',['r1'],driver=drive,publication_failure=fail_once);self.assert_render_ok(r,1)
+        self.assertEqual(r['driver_observations']['workers_created'],2)
+        self.assertEqual(r['driver_observations']['after_each_run'],
+                         [{'processing':False,'status':'Erreur'},{'processing':False,'status':'Terminé : 1 Shorts prêts à valider'}])
+        reports=[json.loads((Path(p)/'rapport.json').read_text()) for p in r['run_dirs']]
+        self.assertEqual(sorted(report['status'] for report in reports),['completed','failed'])
+        self.assertEqual(len(r['outputs']),2)
+        self.assertFalse(any(m[0]=='warning' and m[1]=='Traitement en cours' for m in r['messages']))
+
+    def test_T47_audio_payload_corruption_must_not_be_status_ok(self):
+        packet_records=[]
+        def corrupt_audio(x,cmd):packet_records.extend(corrupt_packets(Path(cmd[-1]),stream='a:0'))
+        r=execute('T47',['audio'],hook=corrupt_audio)
+        EVIDENCE['T47']['injected_corruption']={'method':'zero AAC packet payloads, retain video and MP4 structure',
+                                               'packet_count':len(packet_records)}
+        self.assert_finished(r)
+        self.assertNotEqual(r['outputs'][0]['decode'],{'returncode':0,'stderr':''})
+        self.assertEqual(r['report']['exports'],[],
+                         'Output with undecodable audio is marked status: ok')
 
     def test_T99_global_report_and_decode_checks(self):
         checks=[];missing=[];bad_ok=[]
@@ -891,53 +999,95 @@ print('EVIDENCE',ROOT/'evidence.json')
 print('APPLICATION FILES UNCHANGED',integrity['unchanged'])
 if not integrity['unchanged']:raise RuntimeError('Application changed during audit')
 sys.exit(0 if result.wasSuccessful() else 1)
-
 ```
 
-**Code de `confirm_v03.py`**
+**Code de `confirm_v04.py`**
 
 ```python
-"""Focused confirmations on the exact immutable app.py, separate from unittest harness."""
-import hashlib,importlib.util,json,os,subprocess,sys
+"""Independent confirmations for the exact MVP 0.4 snapshot."""
+import hashlib,importlib.util,json,subprocess,sys
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 sys.dont_write_bytecode=True
 repo=Path(sys.argv[1]).resolve();root=Path(sys.argv[2]).resolve()
-spec=importlib.util.spec_from_file_location('v03_confirmed_app',repo/'app/app.py')
+spec=importlib.util.spec_from_file_location('v04_confirmed_app',repo/'app/app.py')
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 data=json.loads((root/'evidence.json').read_text())['evidence']
-def probe(path):
-    result=subprocess.run(['ffprobe','-v','error','-show_entries',
-                           'stream=codec_type,width,height,duration:format=duration','-of','json',str(path)],
-                          capture_output=True,text=True)
-    return {'returncode':result.returncode,'data':json.loads(result.stdout),'stderr':result.stderr}
-def decode(path):
-    p=subprocess.run(['ffmpeg','-v','error','-i',str(path),'-f','null','-'],
-                     stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
+def decode(path,video_only=False):
+    cmd=['ffmpeg','-v','error','-i',str(path)]
+    if video_only:cmd+=['-map','0:v:0']
+    cmd+=['-f','null','-']
+    p=subprocess.run(cmd,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
     return {'returncode':p.returncode,'stderr':p.stderr}
 before={str(p.relative_to(repo)):hashlib.sha256(p.read_bytes()).hexdigest() for p in (repo/'app').rglob('*') if p.is_file()}
 runs=sorted(p for p in root.rglob('run_*') if p.is_dir())
-c1={'id':'C01','run_count':len(runs),'missing_reports':[str(p) for p in runs if not (p/'rapport.json').is_file()]}
-assert c1['missing_reports']==[]
-c1['parsed_reports']=len([json.loads((p/'rapport.json').read_text()) for p in runs])
-control=root/'controls';control.mkdir(exist_ok=True)
+reports=[json.loads((p/'rapport.json').read_text()) for p in runs]
+ok=[{'run':str(p),'entry':e} for p,r in zip(runs,reports) for e in r['exports'] if e['status']=='ok']
+checks=[]
+for item in ok:
+    file=Path(item['entry']['file'])
+    decoded=decode(file)
+    metadata=json.loads(subprocess.check_output(['ffprobe','-v','error','-select_streams','v:0',
+                                                '-show_entries','stream=width,height,duration','-of','json',str(file)],text=True))
+    item.update({'bytes':file.stat().st_size,'probe':metadata,'decode':decoded})
+    assert decoded=={'returncode':0,'stderr':''}
+    assert (metadata['streams'][0]['width'],metadata['streams'][0]['height'])==(1080,1920)
+    checks.append(item)
+c1={'id':'C01','created_run_dirs':len(runs),'parsed_reports':len(reports),
+    'actual_status_ok_count':len(checks),'all_status_ok_decode_checks':checks}
 source=Path(data['T36']['inputs'][0])
-cmd=data['T36']['commands'][0].copy()
-cmd[cmd.index('-ss')+1]='0';cmd[cmd.index('-t')+1]='2';cmd[-1]=str(control/'mkv_at_actual_video_start.mp4')
-render=subprocess.run(cmd,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
-c2={'id':'C02','original_probe_source':m.App.probe_source(source),'input_decode':decode(source),
-    'control_command':cmd,'control_render_returncode':render.returncode,'control_probe':probe(cmd[-1]),'control_decode':decode(cmd[-1])}
-assert render.returncode==0 and c2['input_decode']=={'returncode':0,'stderr':''}
-assert c2['control_decode']=={'returncode':0,'stderr':''}
-assert any(s['codec_type']=='video' and (s['width'],s['height'])==(1080,1920) for s in c2['control_probe']['data']['streams'])
-path=Path(data['T37']['outputs'][0]['file'])
-c3={'id':'C03','path':str(path),'bytes':path.stat().st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
-    'original_verify_export_return':m.App.verify_export(path),'independent_probe':probe(path),'independent_decode':decode(path)}
-assert c3['original_verify_export_return'] is True and c3['independent_decode']['returncode']!=0
+packets=json.loads(subprocess.check_output(['ffprobe','-v','error','-select_streams','v:0','-show_packets',
+                                           '-show_entries','packet=pts_time,duration_time','-of','json',str(source)],text=True))['packets']
+end=max(float(p['pts_time'])+float(p['duration_time']) for p in packets)
+c2={'id':'C02','original_probe_source':m.App.probe_source(source),'independent_packet_video_end':end,
+    'container_duration':data['T36']['input_probe']['format']['duration'],
+    'input_decode':decode(source),'pipeline_export_count':len(data['T36']['report']['exports'])}
+assert abs(c2['original_probe_source']['duration']-end)<1e-6
+assert c2['input_decode']=={'returncode':0,'stderr':''} and c2['pipeline_export_count']==1
+def verify_result(path):
+    try:return {'return':m.App.verify_export(path),'error':None}
+    except Exception as e:return {'return':None,'error':{'type':type(e).__name__,'message':str(e)}}
+damaged=Path(data['T37']['outputs'][0]['file'])
+c3={'id':'C03','path':str(damaged),'bytes':damaged.stat().st_size,
+    'sha256':hashlib.sha256(damaged.read_bytes()).hexdigest(),'original_verify_export':verify_result(damaged),
+    'independent_decode':decode(damaged),'report_exports':data['T37']['report']['exports']}
+assert c3['original_verify_export']['error']['type']=='ValueError' and c3['report_exports']==[]
+assert c3['independent_decode']['returncode']!=0
+r=data['T44']
+c4={'id':'C04','snapshot':r['driver_observations'],'report_event':r['report']['event'],
+    'report_sponsors':r['report']['sponsors'],'run_dir':r['run_dirs'][0],'publication':r['publication']}
+assert c4['report_event']==c4['snapshot']['snapshot_event']=='Événement initial'
+assert c4['report_sponsors']==c4['snapshot']['snapshot_sponsor']=='Partenaire test'
+assert c4['publication'].splitlines()[0]=='Titre proposé : Événement initial | Les Sentinelles'
+interpreter=m.tk.Tcl()
+x=SimpleNamespace(processing=False,files=[str(source)],event=m.tk.StringVar(master=interpreter,value='Démarrage'),
+                  sponsor=m.tk.StringVar(master=interpreter,value='Partenaire'),output=root/'unused_start',
+                  process=lambda snapshot:None)
+escaped=None;warnings=[]
+with patch.object(m.threading.Thread,'start',side_effect=RuntimeError("audit injection: can't start new thread")) as starts:
+    try:m.App.run_thread(x)
+    except Exception as e:escaped={'type':type(e).__name__,'message':str(e)}
+    start_calls=starts.call_count
+with patch.object(m.messagebox,'showwarning',side_effect=lambda *args:warnings.append(args)):
+    m.App.run_thread(x)
+c5={'id':'C05','actual_thread_class_with_start_failure_injected':True,'actual_tcl_variables':True,
+    'escaped':escaped,'thread_start_calls':start_calls,'processing_after_error':x.processing,
+    'warnings_on_next_request':warnings}
+assert escaped['type']=='RuntimeError' and x.processing is True and start_calls==1
+assert warnings[0][0]=='Traitement en cours'
+audio=Path(data['T47']['outputs'][0]['file'])
+c6={'id':'C06','original_verify_export':verify_result(audio),'independent_decode':decode(audio),
+    'report_exports':data['T47']['report']['exports']}
+assert c6['original_verify_export']['error']['type']=='ValueError' and c6['report_exports']==[]
 after={str(p.relative_to(repo)):hashlib.sha256(p.read_bytes()).hexdigest() for p in (repo/'app').rglob('*') if p.is_file()}
 assert before==after
-out={'confirmations':[c1,c2,c3],'app_unchanged':before==after}
+out={'confirmations':[c1,c2,c3,c4,c5,c6],'app_unchanged':before==after}
 (root/'confirmations.json').write_text(json.dumps(out,ensure_ascii=False,indent=2))
-print(json.dumps(out,ensure_ascii=False,indent=2))
+print(json.dumps({'created_run_dirs':len(runs),'reports':len(reports),'status_ok_count':len(checks),
+                  'mk_video_duration':c2['original_probe_source']['duration'],'mkv_container_duration':c2['container_duration'],
+                  'h264_gate_error':c3['original_verify_export']['error'],'startup_fault':c5,
+                  'audio_corruption_gate_error':c6['original_verify_export']['error'],'app_unchanged':before==after},ensure_ascii=False,indent=2))
 
 ```
 
