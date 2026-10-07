@@ -4,13 +4,13 @@ from pathlib import Path
 from datetime import datetime
 import subprocess, json, shutil, threading, re, os, uuid
 
-APP_NAME="Sentinelles Content Factory MVP 0.3"
+APP_NAME="Sentinelles Content Factory MVP 0.4"
 NAVY="#081B4B"; RED="#E41F2B"
 
 class App(tk.Tk):
     def __init__(self):
         super().__init__(); self.title(APP_NAME); self.geometry("980x680"); self.configure(bg="#F3F5F9")
-        self.files=[]; self.output=Path.cwd()/"exports"; self.output.mkdir(exist_ok=True)
+        self.files=[]; self.output=Path.cwd()/"exports"; self.output.mkdir(exist_ok=True); self.processing=False
         self.event=tk.StringVar(value="Nouvel événement"); self.sponsor=tk.StringVar(value=""); self.status=tk.StringVar(value="Prêt")
         self._ui()
 
@@ -47,10 +47,14 @@ class App(tk.Tk):
         if d: self.output=Path(d); self.status.set(f"Export: {self.output}")
 
     def run_thread(self):
+        if getattr(self,"processing",False):
+            messagebox.showwarning("Traitement en cours","Une génération est déjà en cours."); return
         if not self.files: messagebox.showwarning("Rushs","Importe au moins une vidéo."); return
         if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
             messagebox.showerror("FFmpeg manquant","Installe FFmpeg et ajoute-le au PATH."); return
-        threading.Thread(target=self.process,daemon=True).start()
+        self.processing=True
+        snapshot={"event":self.event.get(),"sponsor":self.sponsor.get(),"files":list(self.files),"output":Path(self.output)}
+        threading.Thread(target=self.process,args=(snapshot,),daemon=True).start()
 
     @staticmethod
     def source_id(f):
@@ -71,8 +75,16 @@ class App(tk.Tk):
         v=streams[0]
         duration=v.get("duration")
         if duration in (None,"N/A"):
-            cmd=["ffprobe","-v","error","-show_entries","format=duration","-of","default=nw=1:nk=1",str(f)]
-            duration=subprocess.check_output(cmd,text=True).strip()
+            cmd=["ffprobe","-v","error","-select_streams","v:0","-show_entries",
+                 "frame=best_effort_timestamp_time,pkt_duration_time","-of","json",str(f)]
+            frames=json.loads(subprocess.check_output(cmd,text=True)).get("frames",[])
+            ends=[]
+            for frame in frames:
+                ts=frame.get("best_effort_timestamp_time")
+                if ts not in (None,"N/A"):
+                    ends.append(float(ts)+float(frame.get("pkt_duration_time") or 0))
+            if not ends: raise ValueError("Durée du flux vidéo indéterminable")
+            duration=max(ends)
         d=float(duration)
         if d <= 0: raise ValueError("Durée vidéo nulle")
         return {"duration":d,"width":int(v.get("width") or 0),"height":int(v.get("height") or 0)}
@@ -105,7 +117,7 @@ class App(tk.Tk):
         return selected
 
     def new_run_dir(self):
-        event_dir=Path(self.output)/self.event_slug(self.event.get())
+        event_dir=Path(getattr(self,"_run_output",self.output))/self.event_slug(getattr(self,"_run_event",self.event.get()))
         event_dir.mkdir(parents=True,exist_ok=True)
         for _ in range(5):
             stamp=datetime.now().strftime("%Y%m%d_%H%M%S_%f")
@@ -122,17 +134,24 @@ class App(tk.Tk):
         if not streams: raise ValueError("Export sans flux vidéo")
         s=streams[0]
         if int(s.get("width") or 0)!=1080 or int(s.get("height") or 0)!=1920: raise ValueError("Dimensions export invalides")
+        decoded=subprocess.run(["ffmpeg","-v","error","-i",str(path),"-map","0:v:0","-f","null","-"],
+                               stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
+        if decoded.returncode!=0 or decoded.stderr.strip():
+            raise ValueError("Décodage vidéo de contrôle échoué")
         return True
 
-    def process(self):
+    def process(self, snapshot=None):
+        if snapshot is None:
+            snapshot={"event":self.event.get(),"sponsor":self.sponsor.get(),"files":list(self.files),"output":Path(self.output)}
         self.progress.start(10); self.status.set("Analyse en cours...")
         run_dir=None
-        report={"schema_version":"0.3","event":self.event.get(),"sponsors":self.sponsor.get(),
+        report={"schema_version":"0.4","event":snapshot["event"],"sponsors":snapshot["sponsor"],
                 "run_dir":None,"status":"running","sources":[],"candidates":[],"exports":[],"errors":[]}
         try:
+            self._run_output=snapshot["output"]; self._run_event=snapshot["event"]
             run_dir=self.new_run_dir(); report["run_dir"]=str(run_dir)
             seen=set()
-            for f in self.files:
+            for f in snapshot["files"]:
                 sid=self.source_id(f)
                 if sid in seen:
                     report["sources"].append({"file":f,"source_id":sid,"error":"source dupliquée/alias ignoré"}); continue
@@ -163,8 +182,8 @@ class App(tk.Tk):
                     report["errors"].append({"stage":"export","source":c["file"],"output":str(out),"error":str(e)})
 
             report["status"]="completed" if report["exports"] else "no_usable_segment"
-            copy=f"{self.event.get()} | Les Sentinelles | Hockey des Forces de l'Ordre | {self.sponsor.get()}".strip()
-            (run_dir/"publication_proposee.txt").write_text("Titre proposé : "+self.event.get()+" | Les Sentinelles\n\nDescription : "+copy+"\n\n#LesSentinelles #Hockey #ForcesDeLOrdre\n",encoding="utf-8")
+            copy=f"{snapshot['event']} | Les Sentinelles | Hockey des Forces de l'Ordre | {snapshot['sponsor']}".strip()
+            (run_dir/"publication_proposee.txt").write_text("Titre proposé : "+snapshot["event"]+" | Les Sentinelles\n\nDescription : "+copy+"\n\n#LesSentinelles #Hockey #ForcesDeLOrdre\n",encoding="utf-8")
             (run_dir/"rapport.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
             if report["exports"]:
                 self.status.set(f"Terminé : {len(report['exports'])} Shorts prêts à valider")
@@ -180,6 +199,9 @@ class App(tk.Tk):
                 except Exception: pass
             messagebox.showerror("Erreur",str(e))
         finally:
+            self.processing=False
+            for attr in ("_run_output","_run_event"):
+                if hasattr(self,attr): delattr(self,attr)
             self.progress.stop()
 
     def open_exports(self):
