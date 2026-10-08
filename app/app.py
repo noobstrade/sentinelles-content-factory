@@ -3,8 +3,12 @@ from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
 from datetime import datetime
 import subprocess, json, shutil, threading, re, os, uuid
+try:
+    from motion_tracking_experimental import crop_filter
+except ImportError:
+    crop_filter=None
 
-APP_NAME="Sentinelles Content Factory MVP 0.7"
+APP_NAME="Sentinelles Content Factory MVP 0.8 expérimental"
 NAVY="#081B4B"; RED="#E41F2B"
 
 class App(tk.Tk):
@@ -196,11 +200,21 @@ class App(tk.Tk):
             report["branding_mode"]="navy_banner_with_text" if has_drawtext else "navy_banner_no_text"
             if not has_drawtext:
                 report["warnings"]=["FFmpeg sans drawtext : bandeau bleu et liseré rouge présents, libellé texte omis."]
+            report["framing_mode"]="motion_guided_experimental_with_letterbox_fallback"
             for i,c in enumerate(selected,1):
                 out=run_dir/f"short_{i:02d}_9x16.mp4"
                 try:
+                    clip_vf=vf
+                    if crop_filter is not None:
+                        try:
+                            tracked=crop_filter(c["file"],c["start"],c["duration"])
+                            clip_vf=tracked+","+(",".join(base_vf.split(",")[2:]))
+                            if has_drawtext:
+                                clip_vf+=",drawtext=text=\'LES SENTINELLES\':x=(w-text_w)/2:y=45:fontsize=54:fontcolor=white"
+                        except Exception as tracking_error:
+                            report.setdefault("warnings",[]).append(f"Suivi indisponible pour {c[\'file\']}: {tracking_error}")
                     cmd=["ffmpeg","-y","-ss",str(c["start"]),"-i",c["file"],"-t",str(c["duration"]),"-map","0:v:0","-map","0:a?",
-                         "-vf",vf,"-c:v","libx264","-preset","veryfast","-crf","22","-c:a","aac","-b:a","160k","-shortest",str(out)]
+                         "-vf",clip_vf,"-c:v","libx264","-preset","veryfast","-crf","22","-c:a","aac","-b:a","160k","-shortest",str(out)]
                     subprocess.run(cmd,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
                     self.verify_export(out)
                     report["exports"].append({"file":str(out),"source":c["file"],"source_id":c["source_id"],"start":c["start"],"duration":c["duration"],"status":"ok"})
