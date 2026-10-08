@@ -212,7 +212,7 @@ class App(tk.Tk):
                             if has_drawtext:
                                 clip_vf+=",drawtext=text=\'LES SENTINELLES\':x=(w-text_w)/2:y=45:fontsize=54:fontcolor=white"
                         except Exception as tracking_error:
-                            report.setdefault("warnings",[]).append(f"Suivi indisponible pour {c[\'file\']}: {tracking_error}")
+                            report.setdefault("warnings",[]).append(f"Suivi indisponible pour {c['file']}: {tracking_error}")
                     cmd=["ffmpeg","-y","-ss",str(c["start"]),"-i",c["file"],"-t",str(c["duration"]),"-map","0:v:0","-map","0:a?",
                          "-vf",clip_vf,"-c:v","libx264","-preset","veryfast","-crf","22","-c:a","aac","-b:a","160k","-shortest",str(out)]
                     subprocess.run(cmd,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
