@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime
 import subprocess, json, shutil, threading, re, os, uuid
 
-APP_NAME="Sentinelles Content Factory MVP 0.6"
+APP_NAME="Sentinelles Content Factory MVP 0.7"
 NAVY="#081B4B"; RED="#E41F2B"
 
 class App(tk.Tk):
@@ -159,7 +159,7 @@ class App(tk.Tk):
             snapshot={"event":self.event.get(),"sponsor":self.sponsor.get(),"files":list(self.files),"output":Path(self.output)}
         self.progress.start(10); self.status.set("Analyse en cours...")
         run_dir=None
-        report={"schema_version":"0.6","event":snapshot["event"],"sponsors":snapshot["sponsor"],
+        report={"schema_version":"0.7","event":snapshot["event"],"sponsors":snapshot["sponsor"],
                 "run_dir":None,"status":"running","sources":[],"candidates":[],"exports":[],"errors":[]}
         try:
             self._run_output=snapshot["output"]; self._run_event=snapshot["event"]
@@ -181,16 +181,21 @@ class App(tk.Tk):
             report["candidates"]=selected
             # Homebrew's standard FFmpeg build on macOS may not provide drawtext.
             # Branding must therefore degrade gracefully instead of aborting every export.
-            base_vf=("scale=1080:1920:force_original_aspect_ratio=increase,"
-                     "crop=1080:1920:(iw-1080)/2:(ih-1920)/2,"
-                     "drawbox=x=0:y=0:w=iw:h=150:color=0x081B4B@0.82:t=fill")
+            # Full-scene framing: keep all players visible rather than cropping
+            # most of a landscape hockey rink. Navy letterboxing is intentional.
+            base_vf=("scale=1080:1920:force_original_aspect_ratio=decrease,"
+                     "pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=0x081B4B,"
+                     "drawbox=x=0:y=0:w=iw:h=180:color=0x081B4B:t=fill,"
+                     "drawbox=x=0:y=180:w=iw:h=8:color=0xE41F2B:t=fill")
             has_drawtext=self.ffmpeg_has_filter("drawtext")
             vf=base_vf
             if has_drawtext:
                 vf += ",drawtext=text='LES SENTINELLES':x=(w-text_w)/2:y=45:fontsize=54:fontcolor=white"
             report["ffmpeg_capabilities"]={"drawtext":has_drawtext}
+            report["framing_mode"]="full_scene_letterbox"
+            report["branding_mode"]="navy_banner_with_text" if has_drawtext else "navy_banner_no_text"
             if not has_drawtext:
-                report["warnings"]=["FFmpeg sans drawtext : bandeau graphique conservé, libellé texte omis."]
+                report["warnings"]=["FFmpeg sans drawtext : bandeau bleu et liseré rouge présents, libellé texte omis."]
             for i,c in enumerate(selected,1):
                 out=run_dir/f"short_{i:02d}_9x16.mp4"
                 try:
